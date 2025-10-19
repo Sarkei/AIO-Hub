@@ -106,7 +106,7 @@ export const optionalAuth = (
     };
 
     next();
-  } catch (error) {
+  } catch (_error) {
     // Bei optionaler Auth einfach weitermachen
     next();
   }

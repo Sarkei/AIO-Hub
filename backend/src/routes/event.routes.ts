@@ -65,7 +65,10 @@ const idValidation = [
 ];
 
 // Routes
-router.get('/', eventController.getAllEvents);
+router.get(
+  '/',
+  eventController.getAllEvents
+);
 router.post('/', createEventValidation, eventController.createEvent);
 router.get('/:id', idValidation, eventController.getEventById);
 router.put('/:id', updateEventValidation, eventController.updateEvent);
