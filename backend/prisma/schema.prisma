@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MAIN USER TABLE (in public schema)
+// ============================================
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  schemaName    String   @unique @map("schema_name") // z.B. "user_abc123"
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// ============================================
+// USER-SPEZIFISCHE TABELLEN
+// Die werden pro User in separatem Schema angelegt
+// Diese Models dienen als Vorlage für die Schema-Erstellung
+// ============================================
+
+// TODOS (Kanban-Board)
+model Todo {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  title       String
+  description String?
+  status      TodoStatus @default(OPEN)
+  dueDate     DateTime? @map("due_date")
+  priority    Int       @default(1) // 1=low, 2=medium, 3=high
+  order       Int       @default(0) // Für Sortierung in Spalten
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("todos")
+  @@index([userId, status])
+}
+
+enum TodoStatus {
+  OPEN        // Offen
+  IN_PROGRESS // In Bearbeitung
+  DONE        // Fertig
+}
+
+// EVENTS (Termine)
+model Event {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  location    String?
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  allDay      Boolean  @default(false) @map("all_day")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("events")
+  @@index([userId, startTime])
+}
+
+// BODY METRICS (Körperdaten)
+model BodyMetric {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  date        DateTime @db.Date
+  weight      Float?   // kg
+  bodyFat     Float?   @map("body_fat") // Prozent
+  chest       Float?   // cm
+  waist       Float?   // cm
+  hips        Float?   // cm
+  biceps      Float?   // cm
+  thighs      Float?   // cm
+  calves      Float?   // cm
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, date])
+  @@map("body_metrics")
+  @@index([userId, date])
+}
+
+// WORKOUTS (Gym-Tracker)
+model Workout {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  name        String
+  date        DateTime     @db.Date
+  startTime   DateTime?    @map("start_time")
+  endTime     DateTime?    @map("end_time")
+  notes       String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  
+  exercises   Exercise[]
+
+  @@map("workouts")
+  @@index([userId, date])
+}
+
+model Exercise {
+  id          String   @id @default(uuid())
+  workoutId   String   @map("workout_id")
+  name        String
+  order       Int      @default(0)
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  sets        Set[]
+
+  @@map("exercises")
+  @@index([workoutId])
+}
+
+model Set {
+  id          String   @id @default(uuid())
+  exerciseId  String   @map("exercise_id")
+  setNumber   Int      @map("set_number")
+  reps        Int
+  weight      Float    // kg
+  isWarmup    Boolean  @default(false) @map("is_warmup")
+  rpe         Int?     // Rate of Perceived Exertion (1-10)
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@map("sets")
+  @@index([exerciseId])
+}
+
+// NUTRITION (Ernährungstracker)
+model NutritionProfile {
+  id              String         @id @default(uuid())
+  userId          String         @unique @map("user_id")
+  goal            NutritionGoal  @default(MAINTAIN)
+  dietType        DietType       @default(STANDARD)
+  dailyCalories   Int            @map("daily_calories")
+  proteinGrams    Int            @map("protein_grams")
+  carbsGrams      Int            @map("carbs_grams")
+  fatGrams        Int            @map("fat_grams")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@map("nutrition_profiles")
+}
+
+enum NutritionGoal {
+  LOSE_WEIGHT   // Abnehmen
+  MAINTAIN      // Halten
+  GAIN_WEIGHT   // Zunehmen
+}
+
+enum DietType {
+  STANDARD      // Ausgewogen
+  HIGH_PROTEIN  // High Protein
+  KETO          // Ketogen
+}
+
+model NutritionLog {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  date        DateTime @db.Date
+  mealName    String   @map("meal_name") // Frühstück, Mittagessen, etc.
+  foodItem    String   @map("food_item")
+  calories    Int
+  protein     Float
+  carbs       Float
+  fat         Float
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("nutrition_logs")
+  @@index([userId, date])
+}

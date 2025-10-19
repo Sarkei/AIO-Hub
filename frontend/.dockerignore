@@ -1,0 +1,11 @@
+node_modules
+.next
+npm-debug.log
+dist
+.env
+.git
+.gitignore
+README.md
+.vscode
+out
+build
