@@ -7,6 +7,8 @@
 - **Backend**: Prisma binary targets für Alpine Linux konfiguriert
 - **Frontend**: Cross-origin warning für NAS-Deployment behoben
 - **Frontend**: libc6-compat für bessere Alpine-Kompatibilität
+- **Frontend**: ESLint v9 downgrade auf v8 (Next.js 14 Kompatibilität)
+- **Docker**: npm install mit --legacy-peer-deps für bessere Paket-Kompatibilität
 
 ### ⬆️ Updated
 - **Backend Packages**:
@@ -30,7 +32,7 @@
   - zustand: 4.4.7 → 4.5.5
   - typescript: 5.2.2 → 5.6.3
   - tailwindcss: 3.3.5 → 3.4.14
-  - eslint: 8.54.0 → 9.13.0 (major update!)
+  - eslint: 8.54.0 → 8.57.1 (kept at v8 for Next.js compatibility)
 
 ### 🔄 Replaced
 - **Frontend**: `react-beautiful-dnd` → `@hello-pangea/dnd` (deprecated package replaced)

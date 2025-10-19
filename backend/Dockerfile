@@ -11,8 +11,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Dependencies installieren (npm install statt ci, da package-lock.json möglicherweise fehlt)
-RUN npm install
+# Dependencies installieren mit legacy-peer-deps für bessere Kompatibilität
+RUN npm install --legacy-peer-deps
 
 # Prisma CLI global installieren
 RUN npm install -g prisma

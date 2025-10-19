@@ -10,8 +10,8 @@ WORKDIR /app
 # Package Files kopieren
 COPY package*.json ./
 
-# Dependencies installieren (npm install statt ci, da package-lock.json möglicherweise fehlt)
-RUN npm install
+# Dependencies installieren mit legacy-peer-deps für bessere Kompatibilität
+RUN npm install --legacy-peer-deps
 
 # Quellcode kopieren
 COPY . .
