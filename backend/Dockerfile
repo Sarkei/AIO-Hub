@@ -1,6 +1,9 @@
 # Backend Dockerfile für AIO Hub
 FROM node:18-alpine
 
+# OpenSSL und andere benötigte Pakete installieren
+RUN apk add --no-cache openssl libc6-compat
+
 # Arbeitsverzeichnis erstellen
 WORKDIR /app
 

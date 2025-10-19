@@ -18,9 +18,12 @@ export class AuthController {
    */
   async register(req: AuthRequest, res: Response): Promise<void> {
     try {
+      console.log('📝 Registration attempt:', { username: req.body.username, email: req.body.email });
+      
       // Validierung prüfen
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.error('❌ Validation errors:', errors.array());
         res.status(400).json({
           error: 'Validation Error',
           details: errors.array()
@@ -41,6 +44,7 @@ export class AuthController {
       });
 
       if (existingUser) {
+        console.error('❌ User already exists:', { username, email });
         res.status(409).json({
           error: 'Conflict',
           message: 'Username or email already exists'
@@ -65,7 +69,9 @@ export class AuthController {
       });
 
       // Eigenes Schema für User erstellen
+      console.log('🔧 Creating user schema:', schemaName);
       await createUserSchema(schemaName);
+      console.log('✅ Schema created successfully');
 
       // JWT Token generieren
       const token = jwt.sign(
@@ -78,6 +84,7 @@ export class AuthController {
         { expiresIn: '7d' }
       );
 
+      console.log('✅ User registered successfully:', user.username);
       res.status(201).json({
         message: 'User registered successfully',
         user: {

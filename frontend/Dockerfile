@@ -1,6 +1,9 @@
 # Frontend Dockerfile für AIO Hub
 FROM node:18-alpine
 
+# libc6-compat für bessere Kompatibilität installieren
+RUN apk add --no-cache libc6-compat
+
 # Arbeitsverzeichnis erstellen
 WORKDIR /app
 

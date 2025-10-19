@@ -74,7 +74,7 @@ Nach `docker-compose up -d`:
 
 ### 📊 pgAdmin (Datenbank-Verwaltung)
 - **URL:** `http://<deine-nas-ip>:5050`
-- **Login:** `admin@aiohub.local` / `admin123` (siehe `.env`)
+- **Login:** `admin@admin.com` / `admin123` (siehe `.env`)
 - **Server:** Automatisch verbunden mit "AIO Hub PostgreSQL"
 - **Passwort beim 1. Zugriff:** Dein `POSTGRES_PASSWORD` aus `.env`
 

@@ -75,8 +75,8 @@ FRONTEND_PORT=3000                # Frontend Dev-Port (intern)
 # PGADMIN CONFIGURATION
 # ============================================
 # pgAdmin Login-Daten für Web-Interface
-PGADMIN_EMAIL=admin@aiohub.local  # Login E-Mail für pgAdmin
-PGADMIN_PASSWORD=admin123         # Login Passwort für pgAdmin (ÄNDERN!)
+PGADMIN_EMAIL=admin@admin.com        # Login E-Mail für pgAdmin
+PGADMIN_PASSWORD=admin123            # Login Passwort für pgAdmin (ÄNDERN!)
 
 # ============================================
 # DOCKER INTERNAL PORTS (nicht ändern!)
@@ -181,7 +181,7 @@ aiohub-pgadmin-1        Up 10 seconds      0.0.0.0:5050->80/tcp
 2. **pgAdmin:** `http://<deine-nas-ip>:5050`
    - Beispiel: `http://192.168.1.100:5050`
 3. Login mit:
-   - **E-Mail:** `admin@aiohub.local` (aus `.env`)
+   - **E-Mail:** `admin@admin.com` (aus `.env`)
    - **Passwort:** `admin123` (aus `.env` - ändern empfohlen!)
 4. Server **"AIO Hub PostgreSQL"** ist automatisch verbunden
 5. Beim ersten Zugriff auf den Server: Gib dein `POSTGRES_PASSWORD` ein
@@ -326,7 +326,7 @@ docker exec aiohub-postgres-1 psql -U aiohub -c "SELECT pg_size_pretty(pg_databa
 # pgAdmin öffnen
 open http://localhost:5050
 
-# Login: admin@aiohub.local / admin123 (siehe .env)
+# Login: admin@admin.com / admin123 (siehe .env)
 # Server "AIO Hub PostgreSQL" ist automatisch konfiguriert
 
 # Beim ersten Zugriff auf Server: Gib POSTGRES_PASSWORD ein

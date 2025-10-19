@@ -71,7 +71,7 @@ docker-compose up -d
 - **Web-App**: http://localhost:8080 (via NGINX)
 - **Backend API**: http://localhost:4000
 - **Frontend Dev**: http://localhost:3000
-- **pgAdmin**: http://localhost:5050 (Login: `admin@aiohub.local` / `admin123`)
+- **pgAdmin**: http://localhost:5050 (Login: `admin@admin.com` / `admin123`)
 
 ---
 
