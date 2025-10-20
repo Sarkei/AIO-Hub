@@ -16,14 +16,11 @@ RUN npm install --legacy-peer-deps
 # Quellcode kopieren
 COPY . .
 
-# Next.js bauen (nur für Production)
-# RUN npm run build
+# Next.js bauen für Production
+RUN npm run build
 
 # Port freigeben
 EXPOSE 3000
 
-# Development Server starten
-CMD ["npm", "run", "dev"]
-
-# Für Production:
-# CMD ["npm", "start"]
+# Production Server starten
+CMD ["npm", "start"]
