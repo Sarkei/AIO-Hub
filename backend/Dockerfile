@@ -30,4 +30,4 @@ RUN npm run build
 EXPOSE 4000
 
 # Startskript
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm start"]

@@ -25,6 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: aiohub_backend
     restart: always
+    command: sh -c "npx prisma db push --accept-data-loss && npm start"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -36,8 +37,10 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./backend:/app
+      # Nur node_modules Volume für Production
       - /app/node_modules
+      # Dist-Ordner nicht überschreiben
+      - /app/dist
     networks:
       - aiohub_net
 

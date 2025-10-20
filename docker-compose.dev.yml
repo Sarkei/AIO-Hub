@@ -1,0 +1,13 @@
+# Development Override für docker-compose.yml
+# Verwendung: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    command: sh -c "npx prisma db push --accept-data-loss && npm run dev"
+    environment:
+      NODE_ENV: development
+    volumes:
+      # Im Development-Modus: Source-Code mounten für Hot-Reload
+      - ./backend:/app
+      - /app/node_modules
+      - /app/dist
