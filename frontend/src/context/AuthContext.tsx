@@ -9,7 +9,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+// API_URL dynamisch ermitteln:
+// - Im Browser: Verwende die aktuelle Origin (funktioniert mit localhost, Tailscale IP, oder DNS)
+// - Bei NEXT_PUBLIC_API_URL gesetzt: Verwende diese URL
+// - Ansonsten: Leerer String für relative Pfade über Nginx
+const getApiUrl = () => {
+  // Prüfe ob wir im Browser sind
+  if (typeof window !== 'undefined') {
+    // Verwende die aktuelle Origin (z.B. http://100.81.184.55 oder http://nas-timgreen01)
+    return window.location.origin
+  }
+  // Server-seitig: Verwende ENV oder leer
+  return process.env.NEXT_PUBLIC_API_URL || ''
+}
+
+const API_URL = getApiUrl()
 
 // Axios Instanz mit Timeout
 const api = axios.create({
