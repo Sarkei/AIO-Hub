@@ -9,6 +9,8 @@ import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
+import AppLayout from '@/components/AppLayout'
+import Button from '@/components/ui/Button'
 
 interface Todo {
   id: string
@@ -196,27 +198,17 @@ export default function TodosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AppLayout>
+    <div>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
+      <header className="card shadow-none border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              ← Zurück
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold">
               ✅ Todos - Kanban Board
             </h1>
           </div>
-          <button
-            onClick={openCreateModal}
-            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-          >
-            + Neues Todo
-          </button>
+          <Button onClick={openCreateModal}>+ Neues Todo</Button>
         </div>
       </header>
 
@@ -225,10 +217,10 @@ export default function TodosPage() {
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(['OPEN', 'IN_PROGRESS', 'DONE'] as TodoStatus[]).map((status) => (
-              <div key={status} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <div key={status} className="card p-4">
+                <h2 className="text-lg font-semibold mb-4">
                   {STATUS_LABELS[status]}
-                  <span className="ml-2 text-sm text-gray-500">
+                  <span className="ml-2 text-sm text-[rgb(var(--fg-subtle))]">
                     ({getTodosByStatus(status).length})
                   </span>
                 </h2>
@@ -239,7 +231,7 @@ export default function TodosPage() {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={`space-y-3 min-h-[200px] ${
-                        snapshot.isDraggingOver ? 'bg-gray-200 dark:bg-gray-700' : ''
+                        snapshot.isDraggingOver ? 'bg-[rgb(var(--bg-elevated))]' : ''
                       } rounded-lg p-2 transition-colors`}
                     >
                       {getTodosByStatus(status).map((todo, index) => (
@@ -249,38 +241,38 @@ export default function TodosPage() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              className={`bg-white dark:bg-gray-900 rounded-lg p-4 border-2 shadow-sm ${
+                              className={`card p-4 border-2 ${
                                 PRIORITY_COLORS[todo.priority as 1 | 2 | 3]
                               } ${
                                 snapshot.isDragging ? 'opacity-50 rotate-2' : ''
                               } transition-all cursor-move`}
                             >
                               <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-semibold text-gray-900 dark:text-white">
+                                <h3 className="font-semibold">
                                   {todo.title}
                                 </h3>
                                 <div className="flex gap-2">
                                   <button
                                     onClick={() => openEditModal(todo)}
-                                    className="text-blue-600 hover:text-blue-800 text-sm"
+                                    className="btn btn-secondary px-2 py-1 text-xs"
                                   >
                                     ✏️
                                   </button>
                                   <button
                                     onClick={() => handleDeleteTodo(todo.id)}
-                                    className="text-red-600 hover:text-red-800 text-sm"
+                                    className="btn btn-danger px-2 py-1 text-xs"
                                   >
                                     🗑️
                                   </button>
                                 </div>
                               </div>
                               {todo.description && (
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                <p className="text-sm text-[rgb(var(--fg-muted))] mb-2">
                                   {todo.description}
                                 </p>
                               )}
                               {todo.due_date && (
-                                <p className="text-xs text-gray-500 dark:text-gray-500">
+                                <p className="text-xs text-[rgb(var(--fg-subtle))]">
                                   📅 {new Date(todo.due_date).toLocaleDateString('de-DE')}
                                 </p>
                               )}
@@ -300,8 +292,8 @@ export default function TodosPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               {editingTodo ? 'Todo bearbeiten' : 'Neues Todo'}
             </h2>
@@ -314,7 +306,7 @@ export default function TodosPage() {
                   <input
                     type="text"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
+                    className="input"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   />
@@ -325,7 +317,7 @@ export default function TodosPage() {
                   </label>
                   <textarea
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
+                    className="textarea"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
@@ -335,7 +327,7 @@ export default function TodosPage() {
                     Priorität
                   </label>
                   <select
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
+                    className="select"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) })}
                   >
@@ -350,7 +342,7 @@ export default function TodosPage() {
                   </label>
                   <input
                     type="date"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
+                    className="input"
                     value={formData.dueDate}
                     onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                   />
@@ -363,13 +355,13 @@ export default function TodosPage() {
                     setShowModal(false)
                     setEditingTodo(null)
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="flex-1 btn btn-secondary"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+                  className="flex-1 btn btn-primary"
                 >
                   {editingTodo ? 'Speichern' : 'Erstellen'}
                 </button>
@@ -379,5 +371,6 @@ export default function TodosPage() {
         </div>
       )}
     </div>
+    </AppLayout>
   )
 }

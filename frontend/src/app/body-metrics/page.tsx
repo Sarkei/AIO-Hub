@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import AppLayout from '@/components/AppLayout'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Textarea from '@/components/ui/Textarea'
+import { Card } from '@/components/ui/Card'
 
 interface BodyMetric {
   id: string;
@@ -58,11 +63,7 @@ export default function BodyMetricsPage() {
   const [selectedMetric, setSelectedMetric] = useState<'weight' | 'chest' | 'waist' | 'hips' | 'biceps' | 'thighs' | 'calves' | 'bodyFat'>('weight');
   const [showStats, setShowStats] = useState(true);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -86,7 +87,13 @@ export default function BodyMetricsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
+
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,38 +234,31 @@ export default function BodyMetricsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Lade Körperdaten...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--bg))]">
+        <p className="text-lg text-[rgb(var(--fg-muted))]" role="status" aria-live="polite">Lade Körperdaten...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <AppLayout>
+    <div className="py-8 px-4 bg-[rgb(var(--bg))]">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">📊 Body Metrics</h1>
-            <p className="text-gray-600 mt-1">Verfolge deine Körperdaten</p>
+            <h1 className="text-3xl font-bold">📊 Body Metrics</h1>
+            <p className="text-[rgb(var(--fg-muted))] mt-1">Verfolge deine Körperdaten</p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setViewMode(viewMode === 'list' ? 'chart' : 'list')}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-            >
+            <Button variant="secondary" onClick={() => setViewMode(viewMode === 'list' ? 'chart' : 'list')}>
               {viewMode === 'list' ? '📈 Chart' : '📋 Liste'}
-            </button>
-            <button
-              onClick={() => {
-                setEditingId(null);
-                setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
-                setShowModal(true);
-              }}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            </Button>
+            <Button
+              onClick={() => { setEditingId(null); setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] }); setShowModal(true); }}
             >
               + Neuer Eintrag
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -266,29 +266,29 @@ export default function BodyMetricsPage() {
         {showStats && latestMetric && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             {/* Aktuelles Gewicht */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">Aktuelles Gewicht</span>
+                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Aktuelles Gewicht</span>
                 <span className="text-2xl">⚖️</span>
               </div>
-              <div className="text-3xl font-bold text-gray-900">
+              <div className="text-3xl font-bold">
                 {latestMetric.weight ? `${latestMetric.weight} kg` : '-'}
               </div>
               {weightChange && (
                 <div className={`text-sm mt-2 ${getChangeColor(weightChange.value, true)}`}>
                   {getChangeIcon(weightChange.value)} {weightChange.value > 0 ? '+' : ''}{weightChange.value.toFixed(1)} kg
-                  <span className="text-gray-500"> ({weightChange.percentage > 0 ? '+' : ''}{weightChange.percentage.toFixed(1)}%)</span>
+                  <span className="text-[rgb(var(--fg-subtle))]"> ({weightChange.percentage > 0 ? '+' : ''}{weightChange.percentage.toFixed(1)}%)</span>
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Körperfett */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">Körperfett</span>
+                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Körperfett</span>
                 <span className="text-2xl">💧</span>
               </div>
-              <div className="text-3xl font-bold text-gray-900">
+              <div className="text-3xl font-bold">
                 {latestMetric.body_fat ? `${latestMetric.body_fat}%` : '-'}
               </div>
               {bodyFatChange && (
@@ -296,15 +296,15 @@ export default function BodyMetricsPage() {
                   {getChangeIcon(bodyFatChange.value)} {bodyFatChange.value > 0 ? '+' : ''}{bodyFatChange.value.toFixed(1)}%
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Taille */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">Taille</span>
+                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Taille</span>
                 <span className="text-2xl">📏</span>
               </div>
-              <div className="text-3xl font-bold text-gray-900">
+              <div className="text-3xl font-bold">
                 {latestMetric.waist ? `${latestMetric.waist} cm` : '-'}
               </div>
               {weekAgoMetric?.waist && latestMetric.waist && (
@@ -312,35 +312,33 @@ export default function BodyMetricsPage() {
                   {getChangeIcon(latestMetric.waist - weekAgoMetric.waist)} {(latestMetric.waist - weekAgoMetric.waist) > 0 ? '+' : ''}{(latestMetric.waist - weekAgoMetric.waist).toFixed(1)} cm
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Letzte Messung */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">Letzte Messung</span>
+                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Letzte Messung</span>
                 <span className="text-2xl">📅</span>
               </div>
-              <div className="text-xl font-bold text-gray-900">
+              <div className="text-xl font-bold">
                 {new Date(latestMetric.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}
               </div>
-              <div className="text-sm text-gray-500 mt-2">
+              <div className="text-sm text-[rgb(var(--fg-subtle))] mt-2">
                 {metrics.length} Einträge gesamt
               </div>
-            </div>
+            </Card>
           </div>
         )}
 
         {/* Chart View */}
         {viewMode === 'chart' && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <Card className="p-6 mb-6">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Auswählen:
-              </label>
+              <label className="block text-sm font-medium mb-2">Auswählen:</label>
               <select
                 value={selectedMetric}
                 onChange={(e) => setSelectedMetric(e.target.value as any)}
-                className="px-4 py-2 border border-gray-300 rounded-lg"
+                className="select"
               >
                 <option value="weight">Gewicht</option>
                 <option value="bodyFat">Körperfett</option>
@@ -371,22 +369,22 @@ export default function BodyMetricsPage() {
                 />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
         )}
 
         {/* List View */}
         {viewMode === 'list' && (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <Card className="overflow-hidden">
             {metrics.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-[rgb(var(--fg-subtle))]">
                 Noch keine Einträge. Erstelle deinen ersten Eintrag!
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[rgb(var(--bg-elevated))]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[rgb(var(--fg-subtle))] uppercase">Datum</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gewicht</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Körperfett</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brust</th>
@@ -398,49 +396,41 @@ export default function BodyMetricsPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aktionen</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
                     {metrics.map((metric) => (
-                      <tr key={metric.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <tr key={metric.id} className="hover:bg-[rgb(var(--bg-elevated))]">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           {new Date(metric.date).toLocaleDateString('de-DE')}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.weight ? `${metric.weight} kg` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.body_fat ? `${metric.body_fat}%` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.chest ? `${metric.chest} cm` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.waist ? `${metric.waist} cm` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.hips ? `${metric.hips} cm` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.biceps ? `${metric.biceps} cm` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.thighs ? `${metric.thighs} cm` : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
                           {metric.calves ? `${metric.calves} cm` : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => handleEdit(metric)}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                          >
-                            Bearbeiten
-                          </button>
-                          <button
-                            onClick={() => handleDelete(metric.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Löschen
-                          </button>
+                          <div className="flex gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => handleEdit(metric)}>Bearbeiten</Button>
+                            <Button variant="danger" size="sm" onClick={() => handleDelete(metric.id)}>Löschen</Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -448,14 +438,14 @@ export default function BodyMetricsPage() {
                 </table>
               </div>
             )}
-          </div>
+          </Card>
         )}
 
         {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">
+            <div className="card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="metrics-modal-title">
+              <h2 id="metrics-modal-title" className="text-2xl font-bold mb-4">
                 {editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}
               </h2>
 
@@ -466,20 +456,8 @@ export default function BodyMetricsPage() {
                     Datum *
                   </label>
                   <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={setToday}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                    >
-                      Heute
-                    </button>
+                    <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="flex-1" required />
+                    <Button type="button" variant="secondary" onClick={setToday}>Heute</Button>
                   </div>
                 </div>
 
@@ -489,27 +467,13 @@ export default function BodyMetricsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Gewicht (kg)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.weight}
-                      onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 75.5"
-                    />
+                    <Input type="number" step="0.1" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} placeholder="z.B. 75.5" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Körperfett (%)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.bodyFat}
-                      onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 15.5"
-                    />
+                    <Input type="number" step="0.1" value={formData.bodyFat} onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })} placeholder="z.B. 15.5" />
                   </div>
                 </div>
 
@@ -519,79 +483,37 @@ export default function BodyMetricsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Brust (cm)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.chest}
-                      onChange={(e) => setFormData({ ...formData, chest: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 100"
-                    />
+                    <Input type="number" step="0.1" value={formData.chest} onChange={(e) => setFormData({ ...formData, chest: e.target.value })} placeholder="z.B. 100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Taille (cm)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.waist}
-                      onChange={(e) => setFormData({ ...formData, waist: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 80"
-                    />
+                    <Input type="number" step="0.1" value={formData.waist} onChange={(e) => setFormData({ ...formData, waist: e.target.value })} placeholder="z.B. 80" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Hüfte (cm)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.hips}
-                      onChange={(e) => setFormData({ ...formData, hips: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 95"
-                    />
+                    <Input type="number" step="0.1" value={formData.hips} onChange={(e) => setFormData({ ...formData, hips: e.target.value })} placeholder="z.B. 95" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Bizeps (cm)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.biceps}
-                      onChange={(e) => setFormData({ ...formData, biceps: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 35"
-                    />
+                    <Input type="number" step="0.1" value={formData.biceps} onChange={(e) => setFormData({ ...formData, biceps: e.target.value })} placeholder="z.B. 35" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Oberschenkel (cm)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.thighs}
-                      onChange={(e) => setFormData({ ...formData, thighs: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 60"
-                    />
+                    <Input type="number" step="0.1" value={formData.thighs} onChange={(e) => setFormData({ ...formData, thighs: e.target.value })} placeholder="z.B. 60" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Waden (cm)
                     </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.calves}
-                      onChange={(e) => setFormData({ ...formData, calves: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 40"
-                    />
+                    <Input type="number" step="0.1" value={formData.calves} onChange={(e) => setFormData({ ...formData, calves: e.target.value })} placeholder="z.B. 40" />
                   </div>
                 </div>
 
@@ -600,34 +522,13 @@ export default function BodyMetricsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notizen
                   </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    rows={3}
-                    placeholder="Optionale Notizen..."
-                  />
+                  <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={3} placeholder="Optionale Notizen..." />
                 </div>
 
                 {/* Buttons */}
                 <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      setEditingId(null);
-                      setFormData(emptyForm);
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {editingId ? 'Aktualisieren' : 'Erstellen'}
-                  </button>
+                  <Button type="button" variant="secondary" onClick={() => { setShowModal(false); setEditingId(null); setFormData(emptyForm); }}>Abbrechen</Button>
+                  <Button type="submit">{editingId ? 'Aktualisieren' : 'Erstellen'}</Button>
                 </div>
               </form>
             </div>
@@ -635,5 +536,6 @@ export default function BodyMetricsPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   );
 }

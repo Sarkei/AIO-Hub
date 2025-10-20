@@ -2,32 +2,145 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Design Tokens (Light/Dark)
+  - Semantic CSS variables used across components to achieve consistent contrast and theming
+  - Light mode prioritizes clarity and >=4.5:1 contrast for body text
+*/
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  /* Surfaces */
+  --bg: 255 255 255;             /* page background */
+  --bg-elevated: 249 250 251;     /* panels, sections */
+  --card: 255 255 255;            /* cards */
+  --card-border: 229 231 235;     /* borders on light surfaces */
+
+  /* Text */
+  --fg: 17 24 39;                 /* primary text (gray-900) */
+  --fg-muted: 75 85 99;           /* secondary text (gray-600) */
+  --fg-subtle: 107 114 128;       /* tertiary text (gray-500) */
+
+  /* Brand/Accent */
+  --accent: 59 130 246;           /* primary-500 */
+  --accent-600: 37 99 235;        /* primary-600 */
+  --accent-700: 29 78 216;        /* primary-700 */
+  --accent-50: 239 246 255;       /* primary-50 */
+
+  /* State colors */
+  --ring: 59 130 246;             /* focus ring */
+  --success: 16 185 129;          /* green-500 */
+  --warning: 245 158 11;          /* amber-500 */
+  --danger: 239 68 68;            /* red-500 */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+.dark {
+  --bg: 3 7 18;                   /* gray-950 */
+  --bg-elevated: 17 24 39;        /* gray-900 */
+  --card: 17 24 39;               /* gray-900 */
+  --card-border: 31 41 55;        /* gray-800 */
+
+  --fg: 243 244 246;              /* gray-100 */
+  --fg-muted: 209 213 219;        /* gray-300 */
+  --fg-subtle: 156 163 175;       /* gray-400 */
+
+  --accent: 96 165 250;           /* primary-400 (brighter on dark) */
+  --accent-600: 37 99 235;        /* primary-600 */
+  --accent-700: 29 78 216;        /* primary-700 */
+  --accent-50: 30 58 138;         /* primary-900-ish background tint */
+
+  --ring: 59 130 246;
+  --success: 16 185 129;
+  --warning: 245 158 11;
+  --danger: 239 68 68;
+}
+
+/* Base resets and typography */
+@layer base {
+  html {
+    color-scheme: light dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply antialiased;
+    color: rgb(var(--fg));
+    background-color: rgb(var(--bg));
+  }
+
+  ::selection {
+    background: rgba(var(--accent), 0.2);
+  }
+
+  /* Accessible focus ring */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--ring), 0.35);
+    border-radius: 6px;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* Component primitives using Tailwind with CSS variables */
+@layer components {
+  .card {
+    @apply rounded-xl border shadow-sm transition-shadow duration-200;
+    background-color: rgb(var(--card));
+    border-color: rgb(var(--card-border));
+  }
+  .card:hover {
+    @apply shadow;
+  }
+  .card-header {
+    @apply px-6 py-4 border-b;
+    border-color: rgb(var(--card-border));
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    color: white;
+    /* Use stronger contrast color for accessibility */
+    background-color: rgb(var(--accent-600));
+  }
+  .btn-primary:hover { background-color: rgb(var(--accent-700)); }
+  .btn-primary:active { filter: brightness(0.95); }
+
+  .btn-secondary {
+    color: rgb(var(--fg));
+    background-color: rgb(var(--bg-elevated));
+    border: 1px solid rgb(var(--card-border));
+  }
+  .btn-secondary:hover { background-color: rgba(var(--accent), 0.06); }
+
+  .btn-danger {
+    @apply text-white;
+    background-color: rgb(var(--danger));
+  }
+  .btn-danger:hover { filter: brightness(0.95); }
+
+  .input, .select, .textarea {
+    @apply w-full px-3 py-2 text-sm rounded-lg transition-colors border;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--fg));
+    border-color: rgb(var(--card-border));
+  }
+  .input::placeholder, .textarea::placeholder {
+    color: rgb(var(--fg-subtle));
+  }
+  .input:hover, .select:hover, .textarea:hover {
+    background-color: rgb(var(--bg-elevated));
+  }
+  .input:focus-visible, .select:focus-visible, .textarea:focus-visible {
+    border-color: rgb(var(--accent));
+    box-shadow: 0 0 0 3px rgba(var(--ring), 0.25);
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md;
+    background-color: rgba(var(--accent), 0.12);
+    color: rgb(var(--accent-700));
+  }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .elevate { @apply shadow-sm hover:shadow transition-shadow; }
+  .text-balance { text-wrap: balance; }
 }

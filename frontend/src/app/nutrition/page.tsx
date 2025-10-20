@@ -1,9 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import AppLayout from '@/components/AppLayout'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
+import Textarea from '@/components/ui/Textarea'
+import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 
 interface NutritionProfile {
   id: string;
@@ -86,11 +92,7 @@ export default function NutritionPage() {
     notes: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedDate]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -141,7 +143,11 @@ export default function NutritionPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, selectedDate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,31 +299,29 @@ export default function NutritionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Lade Ernährungsdaten...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--bg))]">
+        <p className="text-lg text-[rgb(var(--fg-muted))]" role="status" aria-live="polite">Lade Ernährungsdaten...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <AppLayout>
+    <div className="py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">🍽️ Ernährungstracker</h1>
-            <p className="text-gray-600 mt-1">Tracke deine Mahlzeiten & Kalorien</p>
+            <h1 className="text-3xl font-bold">🍽️ Ernährungstracker</h1>
+            <p className="text-[rgb(var(--fg-muted))] mt-1">Tracke deine Mahlzeiten & Kalorien</p>
           </div>
           <div className="flex gap-2">
             {profile && (
-              <button
-                onClick={() => setShowProfileModal(true)}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-              >
+              <Button variant="secondary" onClick={() => setShowProfileModal(true)} aria-label="Ernährungsprofil öffnen">
                 ⚙️ Profil
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               onClick={() => {
                 setEditingLogId(null);
                 setLogForm({
@@ -332,68 +336,60 @@ export default function NutritionPage() {
                 });
                 setShowLogModal(true);
               }}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              aria-label="Mahlzeit hinzufügen"
             >
               + Mahlzeit hinzufügen
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Datum Auswahl */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <Card className="p-4 mb-6">
           <div className="flex items-center gap-4">
-            <label className="font-medium text-gray-700">Datum:</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg"
-            />
-            <button
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-              className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
-            >
+            <label className="font-medium">Datum:</label>
+            <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+            <Button variant="secondary" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])} aria-label="Datum auf heute setzen">
               Heute
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
 
         {/* Statistiken & Progress */}
         {stats && stats.profile && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Kalorien Progress */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600">Kalorien Heute</h3>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                  <h3 className="text-sm font-medium text-[rgb(var(--fg-muted))]">Kalorien Heute</h3>
+                  <p className="text-3xl font-bold mt-1">
                     {stats.today.total_calories}
-                    <span className="text-lg text-gray-500"> / {stats.profile.target_calories}</span>
+                    <span className="text-lg text-[rgb(var(--fg-subtle))]"> / {stats.profile.target_calories}</span>
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-[rgb(var(--fg-subtle))] mt-1">
                     Ziel: {getGoalLabel(stats.profile.goal)}
                   </p>
                 </div>
                 <span className="text-4xl">🔥</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="w-full bg-gray-200 rounded-full h-3" aria-hidden="true">
                 <div
                   className={`h-3 rounded-full ${getProgressColor(stats.today.total_calories, stats.profile.target_calories)}`}
                   style={{ width: `${calculateProgress(stats.today.total_calories, stats.profile.target_calories)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-[rgb(var(--fg-subtle))] mt-2">
                 {Math.round(calculateProgress(stats.today.total_calories, stats.profile.target_calories))}% erreicht
               </p>
-            </div>
+            </Card>
 
             {/* Makros */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-4">Makronährstoffe Heute</h3>
+            <Card className="p-6">
+              <h3 className="text-sm font-medium text-[rgb(var(--fg-muted))] mb-4">Makronährstoffe Heute</h3>
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700">💪 Protein</span>
+                    <span>💪 Protein</span>
                     <span className="font-medium">{stats.today.total_protein}g / {stats.profile.target_protein}g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -405,7 +401,7 @@ export default function NutritionPage() {
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700">🌾 Kohlenhydrate</span>
+                    <span>🌾 Kohlenhydrate</span>
                     <span className="font-medium">{stats.today.total_carbs}g / {stats.profile.target_carbs}g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -417,7 +413,7 @@ export default function NutritionPage() {
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-700">🥑 Fett</span>
+                    <span>🥑 Fett</span>
                     <span className="font-medium">{stats.today.total_fat}g / {stats.profile.target_fat}g</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -428,11 +424,11 @@ export default function NutritionPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Makro Verteilung Chart */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-4">Makro-Verteilung</h3>
+            <Card className="p-6">
+              <h3 className="text-sm font-medium text-[rgb(var(--fg-muted))] mb-4">Makro-Verteilung</h3>
               {getMacroChartData().length > 0 ? (
                 <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
@@ -456,58 +452,48 @@ export default function NutritionPage() {
               ) : (
                 <p className="text-gray-500 text-center py-8">Noch keine Daten</p>
               )}
-            </div>
+            </Card>
           </div>
         )}
 
         {/* Mahlzeiten Log */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">
+        <div className="card overflow-hidden">
+          <div className="card-header">
+            <h2 className="text-xl font-bold">
               Mahlzeiten - {new Date(selectedDate).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
             </h2>
           </div>
 
           {logs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-[rgb(var(--fg-subtle))]">
               Noch keine Mahlzeiten für dieses Datum eingetragen.
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
               {logs.map((log) => (
-                <div key={log.id} className="p-6 hover:bg-gray-50 transition">
+                <div key={log.id} className="p-6 hover:bg-[rgb(var(--bg-elevated))] transition-colors">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-2xl">{getMealIcon(log.meal_type)}</span>
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">{log.food_name}</h3>
-                          <p className="text-sm text-gray-500">{getMealLabel(log.meal_type)}</p>
+                          <h3 className="text-lg font-bold">{log.food_name}</h3>
+                          <p className="text-sm text-[rgb(var(--fg-subtle))]">{getMealLabel(log.meal_type)}</p>
                         </div>
                       </div>
-                      <div className="flex gap-6 text-sm text-gray-600 mt-3">
+                      <div className="flex gap-6 text-sm text-[rgb(var(--fg-muted))] mt-3">
                         <span className="font-medium">🔥 {log.calories} kcal</span>
                         {log.protein && <span>💪 {log.protein}g Protein</span>}
                         {log.carbs && <span>🌾 {log.carbs}g Carbs</span>}
                         {log.fat && <span>🥑 {log.fat}g Fett</span>}
                       </div>
                       {log.notes && (
-                        <p className="text-sm text-gray-500 mt-2 italic">{log.notes}</p>
+                        <p className="text-sm text-[rgb(var(--fg-subtle))] mt-2 italic">{log.notes}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditLog(log)}
-                        className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded"
-                      >
-                        Bearbeiten
-                      </button>
-                      <button
-                        onClick={() => handleDeleteLog(log.id)}
-                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        Löschen
-                      </button>
+                      <Button variant="secondary" size="sm" onClick={() => handleEditLog(log)} aria-label="Mahlzeit bearbeiten">Bearbeiten</Button>
+                      <Button variant="danger" size="sm" onClick={() => handleDeleteLog(log.id)} aria-label="Mahlzeit löschen">Löschen</Button>
                     </div>
                   </div>
                 </div>
@@ -519,29 +505,27 @@ export default function NutritionPage() {
         {/* Profile Modal */}
         {showProfileModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">Ernährungsprofil</h2>
+            <div className="card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="nutrition-profile-title">
+              <h2 id="nutrition-profile-title" className="text-2xl font-bold mb-4">Ernährungsprofil</h2>
               <form onSubmit={handleSaveProfile}>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ziel *</label>
-                    <select
+                    <label className="block text-sm font-medium mb-1">Ziel *</label>
+                    <Select
                       value={profileForm.goal}
                       onChange={(e) => setProfileForm({ ...profileForm, goal: e.target.value as any })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                       required
                     >
                       <option value="LOSE_WEIGHT">Abnehmen</option>
                       <option value="MAINTAIN">Gewicht halten</option>
                       <option value="GAIN_WEIGHT">Zunehmen</option>
-                    </select>
+                    </Select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ernährungsform *</label>
-                    <select
+                    <label className="block text-sm font-medium mb-1">Ernährungsform *</label>
+                    <Select
                       value={profileForm.dietType}
                       onChange={(e) => setProfileForm({ ...profileForm, dietType: e.target.value as any })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                       required
                     >
                       <option value="STANDARD">Standard</option>
@@ -549,69 +533,56 @@ export default function NutritionPage() {
                       <option value="KETO">Keto</option>
                       <option value="VEGETARIAN">Vegetarisch</option>
                       <option value="VEGAN">Vegan</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ziel-Kalorien pro Tag *</label>
-                  <input
+                  <label className="block text-sm font-medium mb-1">Ziel-Kalorien pro Tag *</label>
+                  <Input
                     type="number"
                     value={profileForm.targetCalories}
                     onChange={(e) => setProfileForm({ ...profileForm, targetCalories: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                     required
-                    min="500"
-                    max="10000"
+                    min={500}
+                    max={10000}
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Protein (g)</label>
-                    <input
+                    <label className="block text-sm font-medium mb-1">Protein (g)</label>
+                    <Input
                       type="number"
                       value={profileForm.targetProtein}
                       onChange={(e) => setProfileForm({ ...profileForm, targetProtein: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      min="0"
+                      min={0}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Kohlenhydrate (g)</label>
-                    <input
+                    <label className="block text-sm font-medium mb-1">Kohlenhydrate (g)</label>
+                    <Input
                       type="number"
                       value={profileForm.targetCarbs}
                       onChange={(e) => setProfileForm({ ...profileForm, targetCarbs: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      min="0"
+                      min={0}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fett (g)</label>
-                    <input
+                    <label className="block text-sm font-medium mb-1">Fett (g)</label>
+                    <Input
                       type="number"
                       value={profileForm.targetFat}
                       onChange={(e) => setProfileForm({ ...profileForm, targetFat: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      min="0"
+                      min={0}
                     />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   {profile && (
-                    <button
-                      type="button"
-                      onClick={() => setShowProfileModal(false)}
-                      className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                    >
+                    <Button type="button" variant="secondary" onClick={() => setShowProfileModal(false)}>
                       Abbrechen
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Speichern
-                  </button>
+                  <Button type="submit">Speichern</Button>
                 </div>
               </form>
             </div>
@@ -621,111 +592,56 @@ export default function NutritionPage() {
         {/* Log Modal */}
         {showLogModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">{editingLogId ? 'Mahlzeit bearbeiten' : 'Mahlzeit hinzufügen'}</h2>
+            <div className="card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="nutrition-log-title">
+              <h2 id="nutrition-log-title" className="text-2xl font-bold mb-4">{editingLogId ? 'Mahlzeit bearbeiten' : 'Mahlzeit hinzufügen'}</h2>
               <form onSubmit={handleSaveLog}>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
-                    <input
-                      type="date"
-                      value={logForm.date}
-                      onChange={(e) => setLogForm({ ...logForm, date: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
+                    <label className="block text-sm font-medium mb-1">Datum *</label>
+                    <Input type="date" value={logForm.date} onChange={(e) => setLogForm({ ...logForm, date: e.target.value })} required />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mahlzeit *</label>
-                    <select
-                      value={logForm.mealType}
-                      onChange={(e) => setLogForm({ ...logForm, mealType: e.target.value as any })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    >
+                    <label className="block text-sm font-medium mb-1">Mahlzeit *</label>
+                    <Select value={logForm.mealType} onChange={(e) => setLogForm({ ...logForm, mealType: e.target.value as any })} required>
                       <option value="BREAKFAST">Frühstück</option>
                       <option value="LUNCH">Mittagessen</option>
                       <option value="DINNER">Abendessen</option>
                       <option value="SNACK">Snack</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lebensmittel *</label>
-                  <input
-                    type="text"
-                    value={logForm.foodName}
-                    onChange={(e) => setLogForm({ ...logForm, foodName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="z.B. Haferflocken mit Banane"
-                    required
-                  />
+                  <label className="block text-sm font-medium mb-1">Lebensmittel *</label>
+                  <Input type="text" value={logForm.foodName} onChange={(e) => setLogForm({ ...logForm, foodName: e.target.value })} placeholder="z.B. Haferflocken mit Banane" required />
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Kalorien *</label>
-                    <input
-                      type="number"
-                      value={logForm.calories}
-                      onChange={(e) => setLogForm({ ...logForm, calories: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 350"
-                      required
-                      min="0"
-                    />
+                    <label className="block text-sm font-medium mb-1">Kalorien *</label>
+                    <Input type="number" value={logForm.calories} onChange={(e) => setLogForm({ ...logForm, calories: e.target.value })} placeholder="z.B. 350" required min={0} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Protein (g)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={logForm.protein}
-                      onChange={(e) => setLogForm({ ...logForm, protein: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 15"
-                      min="0"
-                    />
+                    <label className="block text-sm font-medium mb-1">Protein (g)</label>
+                    <Input type="number" step="0.1" value={logForm.protein} onChange={(e) => setLogForm({ ...logForm, protein: e.target.value })} placeholder="z.B. 15" min={0} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Kohlenhydrate (g)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={logForm.carbs}
-                      onChange={(e) => setLogForm({ ...logForm, carbs: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 60"
-                      min="0"
-                    />
+                    <label className="block text-sm font-medium mb-1">Kohlenhydrate (g)</label>
+                    <Input type="number" step="0.1" value={logForm.carbs} onChange={(e) => setLogForm({ ...logForm, carbs: e.target.value })} placeholder="z.B. 60" min={0} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fett (g)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={logForm.fat}
-                      onChange={(e) => setLogForm({ ...logForm, fat: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      placeholder="z.B. 8"
-                      min="0"
-                    />
+                    <label className="block text-sm font-medium mb-1">Fett (g)</label>
+                    <Input type="number" step="0.1" value={logForm.fat} onChange={(e) => setLogForm({ ...logForm, fat: e.target.value })} placeholder="z.B. 8" min={0} />
                   </div>
                 </div>
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
-                  <textarea
-                    value={logForm.notes}
-                    onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    rows={2}
-                    placeholder="Optionale Notizen..."
-                  />
+                  <label className="block text-sm font-medium mb-1">Notizen</label>
+                  <Textarea value={logForm.notes} onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })} rows={2} placeholder="Optionale Notizen..." />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => {
                       setShowLogModal(false);
                       setEditingLogId(null);
@@ -740,16 +656,10 @@ export default function NutritionPage() {
                         notes: ''
                       });
                     }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Abbrechen
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {editingLogId ? 'Aktualisieren' : 'Hinzufügen'}
-                  </button>
+                  </Button>
+                  <Button type="submit">{editingLogId ? 'Aktualisieren' : 'Hinzufügen'}</Button>
                 </div>
               </form>
             </div>
@@ -757,5 +667,6 @@ export default function NutritionPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   );
 }

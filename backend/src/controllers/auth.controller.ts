@@ -210,4 +210,124 @@ export class AuthController {
       });
     }
   }
+
+  /**
+   * Profil aktualisieren (Username, Email, Passwort)
+   */
+  async updateProfile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+
+      // Validierung prüfen
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          error: 'Validation Error',
+          details: errors.array()
+        });
+        return;
+      }
+
+      const { username, email, password } = req.body as {
+        username?: string;
+        email?: string;
+        password?: string;
+      };
+
+      // Aktuellen User laden
+      const current = await prisma.user.findUnique({ where: { id: userId } });
+      if (!current) {
+        res.status(404).json({ error: 'Not Found', message: 'User not found' });
+        return;
+      }
+
+      const dataToUpdate: {
+        username?: string;
+        email?: string;
+        passwordHash?: string;
+      } = {};
+
+      // Wenn Username geändert werden soll → auf Kollision prüfen
+      if (username && username !== current.username) {
+        const exists = await prisma.user.findUnique({ where: { username } });
+        if (exists) {
+          res.status(409).json({
+            error: 'Conflict',
+            message: 'Username already in use'
+          });
+          return;
+        }
+        dataToUpdate.username = username;
+      }
+
+      // Wenn Email geändert werden soll → auf Kollision prüfen
+      if (email && email !== current.email) {
+        const exists = await prisma.user.findUnique({ where: { email } });
+        if (exists) {
+          res.status(409).json({
+            error: 'Conflict',
+            message: 'Email already in use'
+          });
+          return;
+        }
+        dataToUpdate.email = email;
+      }
+
+      // Passwort ändern
+      if (password && password.length > 0) {
+        const passwordHash = await bcrypt.hash(password, 12);
+        dataToUpdate.passwordHash = passwordHash;
+      }
+
+      // Nichts zu ändern
+      if (Object.keys(dataToUpdate).length === 0) {
+        // Return current profile and a refreshed token
+        const token = jwt.sign(
+          { id: current.id, username: current.username, schemaName: current.schemaName },
+          process.env.JWT_SECRET!,
+          { expiresIn: '7d' }
+        );
+        res.status(200).json({
+          message: 'No changes applied',
+          user: {
+            id: current.id,
+            username: current.username,
+            email: current.email,
+            createdAt: current.createdAt
+          },
+          token
+        });
+        return;
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: dataToUpdate
+      });
+
+      // Neuen Token ausstellen (Username könnte sich geändert haben)
+      const token = jwt.sign(
+        { id: updated.id, username: updated.username, schemaName: updated.schemaName },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
+
+      res.status(200).json({
+        message: 'Profile updated successfully',
+        user: {
+          id: updated.id,
+          username: updated.username,
+          email: updated.email,
+          createdAt: updated.createdAt
+        },
+        token
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to update profile'
+      });
+    }
+  }
 }

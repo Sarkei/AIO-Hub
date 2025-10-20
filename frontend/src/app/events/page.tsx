@@ -8,6 +8,12 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
+import AppLayout from '@/components/AppLayout'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Textarea from '@/components/ui/Textarea'
+import { Card } from '@/components/ui/Card'
+import Switch from '@/components/ui/Switch'
 
 interface Event {
   id: string
@@ -191,8 +197,8 @@ export default function EventsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-[rgb(var(--bg))]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: 'rgb(var(--accent-600))' }} />
       </div>
     )
   }
@@ -200,51 +206,37 @@ export default function EventsPage() {
   const displayEvents = viewMode === 'upcoming' ? getUpcomingEvents() : getPastEvents()
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AppLayout>
+    <div className="bg-[rgb(var(--bg))]">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
+      <header className="card shadow-none border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                ← Zurück
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                📅 Termine
-              </h1>
-            </div>
-            <div className="flex gap-3">
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button
+            <h1 className="text-2xl font-bold">📅 Termine</h1>
+            <div className="flex gap-2 items-center">
+              <div className="flex bg-[rgb(var(--bg-elevated))] border rounded-lg p-1" style={{ borderColor: 'rgb(var(--card-border))' }} role="tablist" aria-label="Ansicht">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-selected={viewMode === 'upcoming'}
+                  aria-controls="events-upcoming"
                   onClick={() => setViewMode('upcoming')}
-                  className={`px-4 py-2 rounded-md transition-colors ${
-                    viewMode === 'upcoming'
-                      ? 'bg-white dark:bg-gray-600 shadow'
-                      : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  className={viewMode === 'upcoming' ? 'bg-white' : ''}
                 >
                   Anstehend
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-selected={viewMode === 'list'}
+                  aria-controls="events-list"
                   onClick={() => setViewMode('list')}
-                  className={`px-4 py-2 rounded-md transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-white dark:bg-gray-600 shadow'
-                      : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  className={viewMode === 'list' ? 'bg-white' : ''}
                 >
                   Vergangene
-                </button>
+                </Button>
               </div>
-              <button
-                onClick={openCreateModal}
-                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-              >
-                + Neuer Termin
-              </button>
+              <Button onClick={openCreateModal}>+ Neuer Termin</Button>
             </div>
           </div>
         </div>
@@ -254,44 +246,41 @@ export default function EventsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {displayEvents.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
+            <p className="text-[rgb(var(--fg-subtle))] text-lg">
               {viewMode === 'upcoming' ? 'Keine anstehenden Termine' : 'Keine vergangenen Termine'}
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4" id={viewMode === 'upcoming' ? 'events-upcoming' : 'events-list'} role="region" aria-live="polite">
             {displayEvents.map((event) => (
-              <div
-                key={event.id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-md transition-shadow"
-              >
+              <Card key={event.id} className="p-6 hover:shadow transition-shadow">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-xl font-semibold mb-2">
                       {event.title}
                     </h3>
                     {event.description && (
-                      <p className="text-gray-600 dark:text-gray-400 mb-3">
+                      <p className="text-[rgb(var(--fg-muted))] mb-3">
                         {event.description}
                       </p>
                     )}
                     <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2 text-[rgb(var(--fg-muted))]">
                         <span className="font-medium">🕐 Start:</span>
                         {formatDateTime(event.start_time, event.all_day)}
                       </div>
-                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2 text-[rgb(var(--fg-muted))]">
                         <span className="font-medium">🕐 Ende:</span>
                         {formatDateTime(event.end_time, event.all_day)}
                       </div>
                       {event.location && (
-                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-2 text-[rgb(var(--fg-muted))]">
                           <span className="font-medium">📍 Ort:</span>
                           {event.location}
                         </div>
                       )}
                       {event.notes && (
-                        <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400 mt-3">
+                        <div className="flex items-start gap-2 text-[rgb(var(--fg-muted))] mt-3">
                           <span className="font-medium">📝 Notizen:</span>
                           <span className="flex-1">{event.notes}</span>
                         </div>
@@ -299,21 +288,11 @@ export default function EventsPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => openEditModal(event)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDelete(event.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                    >
-                      🗑️
-                    </button>
+                    <Button variant="secondary" size="sm" onClick={() => openEditModal(event)} aria-label="Termin bearbeiten">✏️</Button>
+                    <Button variant="danger" size="sm" onClick={() => handleDelete(event.id)} aria-label="Termin löschen">🗑️</Button>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
@@ -322,70 +301,41 @@ export default function EventsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          <div className="card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+            <h2 id="event-modal-title" className="text-xl font-bold mb-4">
               {editingEvent ? 'Termin bearbeiten' : 'Neuer Termin'}
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Titel *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  />
+                  <label className="block text-sm font-medium mb-1">Titel *</label>
+                  <Input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Beschreibung
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
+                  <label className="block text-sm font-medium mb-1">Beschreibung</label>
+                  <Textarea rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                 </div>
 
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    <input
-                      type="checkbox"
-                      className="rounded"
-                      checked={formData.allDay}
-                      onChange={(e) => setFormData({ ...formData, allDay: e.target.checked })}
-                    />
-                    Ganztägig
-                  </label>
+                  <Switch label="Ganztägig" checked={formData.allDay} onChange={(e) => setFormData({ ...formData, allDay: (e.target as any).checked })} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Start *
-                    </label>
-                    <input
+                    <label className="block text-sm font-medium mb-1">Start *</label>
+                    <Input
                       type={formData.allDay ? 'date' : 'datetime-local'}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Ende *
-                    </label>
-                    <input
+                    <label className="block text-sm font-medium mb-1">Ende *</label>
+                    <Input
                       type={formData.allDay ? 'date' : 'datetime-local'}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                     />
@@ -393,52 +343,34 @@ export default function EventsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Ort
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  />
+                  <label className="block text-sm font-medium mb-1">Ort</label>
+                  <Input type="text" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Notizen
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-white"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  />
+                  <label className="block text-sm font-medium mb-1">Notizen</label>
+                  <Textarea rows={3} value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
                 </div>
               </div>
 
               <div className="flex gap-3 mt-6">
-                <button
+                <Button
                   type="button"
-                  onClick={() => {
-                    setShowModal(false)
-                    setEditingEvent(null)
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => { setShowModal(false); setEditingEvent(null); }}
                 >
                   Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-                >
+                </Button>
+                <Button type="submit" className="flex-1">
                   {editingEvent ? 'Speichern' : 'Erstellen'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
     </div>
+    </AppLayout>
   )
 }

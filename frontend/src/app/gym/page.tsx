@@ -1,8 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import AppLayout from '@/components/AppLayout'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Textarea from '@/components/ui/Textarea'
+import { Card } from '@/components/ui/Card'
 
 interface Set {
   id: string;
@@ -67,22 +72,7 @@ export default function GymPage() {
   const [exerciseName, setExerciseName] = useState('');
   const [setForm, setSetForm] = useState<SetFormData>(emptySetForm);
 
-  useEffect(() => {
-    fetchWorkouts();
-  }, []);
-
-  // Timer Effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerRunning) {
-      interval = setInterval(() => {
-        setTimer(prev => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timerRunning]);
-
-  const fetchWorkouts = async () => {
+  const fetchWorkouts = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -106,7 +96,24 @@ export default function GymPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    fetchWorkouts();
+  }, [fetchWorkouts]);
+
+  // Timer Effect
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  
 
   const fetchWorkoutDetails = async (workoutId: string) => {
     try {
@@ -310,7 +317,8 @@ export default function GymPage() {
   // Active Workout View
   if (viewMode === 'active' && activeWorkout) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <AppLayout>
+      <div className="py-8 px-4 bg-[rgb(var(--bg))]">
         <div className="max-w-5xl mx-auto">
           {/* Header mit Timer */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-lg p-6 mb-6">
@@ -324,18 +332,12 @@ export default function GymPage() {
               <div className="text-right">
                 <div className="text-4xl font-mono font-bold">{formatTimer(timer)}</div>
                 <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => setTimerRunning(!timerRunning)}
-                    className="px-4 py-1 bg-white text-blue-600 rounded hover:bg-blue-50 text-sm"
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => setTimerRunning(!timerRunning)}>
                     {timerRunning ? '⏸ Pause' : '▶ Start'}
-                  </button>
-                  <button
-                    onClick={() => { setTimer(0); setTimerRunning(false); }}
-                    className="px-4 py-1 bg-white text-blue-600 rounded hover:bg-blue-50 text-sm"
-                  >
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => { setTimer(0); setTimerRunning(false); }}>
                     🔄 Reset
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -344,30 +346,17 @@ export default function GymPage() {
           {/* Exercises */}
           <div className="space-y-4">
             {activeWorkout.exercises?.map((exercise) => (
-              <div key={exercise.id} className="bg-white rounded-lg shadow-md p-6">
+              <Card key={exercise.id} className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{exercise.name}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="text-xl font-bold">{exercise.name}</h3>
+                    <p className="text-sm text-[rgb(var(--fg-subtle))]">
                       Volumen: {calculateTotalVolume(exercise).toFixed(1)} kg
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setActiveExercise(exercise);
-                        setShowSetModal(true);
-                      }}
-                      className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                    >
-                      + Satz
-                    </button>
-                    <button
-                      onClick={() => handleDeleteExercise(exercise.id)}
-                      className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                    >
-                      🗑
-                    </button>
+                    <Button size="sm" onClick={() => { setActiveExercise(exercise); setShowSetModal(true); }}>+ Satz</Button>
+                    <Button size="sm" variant="danger" onClick={() => handleDeleteExercise(exercise.id)}>🗑</Button>
                   </div>
                 </div>
 
@@ -375,9 +364,9 @@ export default function GymPage() {
                 {exercise.sets.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-[rgb(var(--bg-elevated))]">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Satz</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-[rgb(var(--fg-subtle))]">Satz</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Wdh.</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Gewicht</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">RPE</th>
@@ -385,27 +374,22 @@ export default function GymPage() {
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Aktion</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
                         {exercise.sets.map((set, idx) => (
-                          <tr key={set.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{idx + 1}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{set.reps}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
+                          <tr key={set.id} className="hover:bg-[rgb(var(--bg-elevated))]">
+                            <td className="px-4 py-3 text-sm font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3 text-sm text-[rgb(var(--fg-muted))]">{set.reps}</td>
+                            <td className="px-4 py-3 text-sm text-[rgb(var(--fg-muted))]">
                               {set.weight ? `${set.weight} kg` : '-'}
                             </td>
                             <td className={`px-4 py-3 text-sm font-medium ${getRPEColor(set.rpe)}`}>
                               {set.rpe || '-'}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700">
+                            <td className="px-4 py-3 text-sm text-[rgb(var(--fg-muted))]">
                               {set.weight ? `${(set.weight * set.reps).toFixed(1)} kg` : '-'}
                             </td>
                             <td className="px-4 py-3 text-sm">
-                              <button
-                                onClick={() => handleDeleteSet(exercise.id, set.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Löschen
-                              </button>
+                              <Button size="sm" variant="danger" onClick={() => handleDeleteSet(exercise.id, set.id)}>Löschen</Button>
                             </td>
                           </tr>
                         ))}
@@ -413,57 +397,29 @@ export default function GymPage() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">Noch keine Sätze</p>
+                  <p className="text-[rgb(var(--fg-subtle))] text-center py-4">Noch keine Sätze</p>
                 )}
-              </div>
+              </Card>
             ))}
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-4 mt-6">
-            <button
-              onClick={() => setShowExerciseModal(true)}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              + Übung hinzufügen
-            </button>
-            <button
-              onClick={handleFinishWorkout}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-            >
-              ✓ Workout beenden
-            </button>
+            <Button className="flex-1" onClick={() => setShowExerciseModal(true)}>+ Übung hinzufügen</Button>
+            <Button variant="secondary" onClick={handleFinishWorkout}>✓ Workout beenden</Button>
           </div>
         </div>
 
         {/* Exercise Modal */}
         {showExerciseModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-2xl font-bold mb-4">Übung hinzufügen</h2>
+            <div className="card max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="exercise-modal-title">
+              <h2 id="exercise-modal-title" className="text-2xl font-bold mb-4">Übung hinzufügen</h2>
               <form onSubmit={handleAddExercise}>
-                <input
-                  type="text"
-                  value={exerciseName}
-                  onChange={(e) => setExerciseName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
-                  placeholder="z.B. Bankdrücken"
-                  required
-                />
+                <Input type="text" value={exerciseName} onChange={(e) => setExerciseName(e.target.value)} className="mb-4" placeholder="z.B. Bankdrücken" required />
                 <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setShowExerciseModal(false); setExerciseName(''); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Hinzufügen
-                  </button>
+                  <Button type="button" variant="secondary" onClick={() => { setShowExerciseModal(false); setExerciseName(''); }}>Abbrechen</Button>
+                  <Button type="submit">Hinzufügen</Button>
                 </div>
               </form>
             </div>
@@ -473,75 +429,44 @@ export default function GymPage() {
         {/* Set Modal */}
         {showSetModal && activeExercise && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-2xl font-bold mb-4">Satz hinzufügen - {activeExercise.name}</h2>
+            <div className="card max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="set-modal-title">
+              <h2 id="set-modal-title" className="text-2xl font-bold mb-4">Satz hinzufügen - {activeExercise.name}</h2>
               <form onSubmit={handleAddSet}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Wiederholungen *
                   </label>
-                  <input
-                    type="number"
-                    value={setForm.reps}
-                    onChange={(e) => setSetForm({ ...setForm, reps: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="z.B. 10"
-                    required
-                  />
+                  <Input type="number" value={setForm.reps} onChange={(e) => setSetForm({ ...setForm, reps: e.target.value })} placeholder="z.B. 10" required />
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Gewicht (kg)
                   </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={setForm.weight}
-                    onChange={(e) => setSetForm({ ...setForm, weight: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="z.B. 80"
-                  />
+                  <Input type="number" step="0.5" value={setForm.weight} onChange={(e) => setSetForm({ ...setForm, weight: e.target.value })} placeholder="z.B. 80" />
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     RPE (1-10) - Rate of Perceived Exertion
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={setForm.rpe}
-                    onChange={(e) => setSetForm({ ...setForm, rpe: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="1 = sehr leicht, 10 = maximale Anstrengung"
-                  />
+                  <Input type="number" min={1} max={10} value={setForm.rpe} onChange={(e) => setSetForm({ ...setForm, rpe: e.target.value })} placeholder="1 = sehr leicht, 10 = maximale Anstrengung" />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setShowSetModal(false); setSetForm(emptySetForm); }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    Hinzufügen
-                  </button>
+                  <Button type="button" variant="secondary" onClick={() => { setShowSetModal(false); setSetForm(emptySetForm); }}>Abbrechen</Button>
+                  <Button type="submit">Hinzufügen</Button>
                 </div>
               </form>
             </div>
           </div>
         )}
       </div>
+      </AppLayout>
     );
   }
 
   // List View
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <AppLayout>
+    <div className="py-8 px-4 bg-[rgb(var(--bg))]">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -549,28 +474,23 @@ export default function GymPage() {
             <h1 className="text-3xl font-bold text-gray-900">💪 Gym Tracker</h1>
             <p className="text-gray-600 mt-1">Tracke deine Workouts</p>
           </div>
-          <button
-            onClick={() => setShowWorkoutModal(true)}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            + Neues Workout
-          </button>
+          <Button onClick={() => setShowWorkoutModal(true)}>+ Neues Workout</Button>
         </div>
 
         {/* Workouts List */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <Card className="overflow-hidden">
           {workouts.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-[rgb(var(--fg-subtle))]">
               Noch keine Workouts. Erstelle dein erstes Workout!
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
               {workouts.map((workout) => (
-                <div key={workout.id} className="p-6 hover:bg-gray-50 transition">
+                <div key={workout.id} className="p-6 hover:bg-[rgb(var(--bg-elevated))] transition">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900">{workout.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <h3 className="text-xl font-bold">{workout.name}</h3>
+                      <p className="text-sm text-[rgb(var(--fg-subtle))] mt-1">
                         {new Date(workout.date).toLocaleDateString('de-DE', {
                           weekday: 'long',
                           year: 'numeric',
@@ -579,90 +499,47 @@ export default function GymPage() {
                         })}
                       </p>
                       {workout.notes && (
-                        <p className="text-sm text-gray-600 mt-2">{workout.notes}</p>
+                        <p className="text-sm text-[rgb(var(--fg-muted))] mt-2">{workout.notes}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleStartExistingWorkout(workout)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                      >
-                        Starten
-                      </button>
-                      <button
-                        onClick={() => handleDeleteWorkout(workout.id)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                      >
-                        Löschen
-                      </button>
+                      <Button variant="secondary" onClick={() => handleStartExistingWorkout(workout)}>Starten</Button>
+                      <Button variant="danger" onClick={() => handleDeleteWorkout(workout.id)}>Löschen</Button>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Workout Modal */}
         {showWorkoutModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-2xl font-bold mb-4">Neues Workout</h2>
+            <div className="card max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="workout-modal-title">
+              <h2 id="workout-modal-title" className="text-2xl font-bold mb-4">Neues Workout</h2>
               <form onSubmit={handleCreateWorkout}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Name *
                   </label>
-                  <input
-                    type="text"
-                    value={workoutForm.name}
-                    onChange={(e) => setWorkoutForm({ ...workoutForm, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="z.B. Push Day"
-                    required
-                  />
+                  <Input type="text" value={workoutForm.name} onChange={(e) => setWorkoutForm({ ...workoutForm, name: e.target.value })} placeholder="z.B. Push Day" required />
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Datum *
                   </label>
-                  <input
-                    type="date"
-                    value={workoutForm.date}
-                    onChange={(e) => setWorkoutForm({ ...workoutForm, date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
+                  <Input type="date" value={workoutForm.date} onChange={(e) => setWorkoutForm({ ...workoutForm, date: e.target.value })} required />
                 </div>
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notizen
                   </label>
-                  <textarea
-                    value={workoutForm.notes}
-                    onChange={(e) => setWorkoutForm({ ...workoutForm, notes: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    rows={3}
-                    placeholder="Optionale Notizen..."
-                  />
+                  <Textarea value={workoutForm.notes} onChange={(e) => setWorkoutForm({ ...workoutForm, notes: e.target.value })} rows={3} placeholder="Optionale Notizen..." />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowWorkoutModal(false);
-                      setWorkoutForm({ name: '', date: new Date().toISOString().split('T')[0], notes: '' });
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Abbrechen
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Erstellen & Starten
-                  </button>
+                  <Button type="button" variant="secondary" onClick={() => { setShowWorkoutModal(false); setWorkoutForm({ name: '', date: new Date().toISOString().split('T')[0], notes: '' }); }}>Abbrechen</Button>
+                  <Button type="submit">Erstellen & Starten</Button>
                 </div>
               </form>
             </div>
@@ -670,5 +547,6 @@ export default function GymPage() {
         )}
       </div>
     </div>
+    </AppLayout>
   );
 }
