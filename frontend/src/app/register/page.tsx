@@ -4,14 +4,14 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { register } = useAuth()
+  const { register, user, loading: authLoading } = useAuth()
   
   const [formData, setFormData] = useState({
     username: '',
@@ -21,6 +21,13 @@ export default function RegisterPage() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Redirect wenn bereits eingeloggt
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/dashboard')
+    }
+  }, [user, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,11 +50,11 @@ export default function RegisterPage() {
         || err.message 
         || 'Registrierung fehlgeschlagen'
       setError(errorMessage)
-    } finally {
       setLoading(false)
     }
   }
 
+  // Zeige Register-Form auch während authLoading
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">

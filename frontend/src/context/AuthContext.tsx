@@ -11,6 +11,14 @@ import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
+// Axios Instanz mit Timeout
+const api = axios.create({
+  timeout: 10000, // 10 Sekunden Timeout
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
 interface User {
   id: string
   username: string
@@ -34,29 +42,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Token aus localStorage laden beim Start
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      // User-Daten vom Backend holen
-      axios
-        .get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        .then((res) => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token')
+      if (token) {
+        try {
+          // User-Daten vom Backend holen
+          const res = await api.get(`${API_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
           setUser(res.data.user)
-        })
-        .catch(() => {
+        } catch (error) {
+          // Token ungültig - entfernen
           localStorage.removeItem('token')
-        })
-        .finally(() => {
-          setLoading(false)
-        })
-    } else {
+        }
+      }
       setLoading(false)
     }
+
+    checkAuth()
   }, [])
 
   const login = async (username: string, password: string) => {
-    const res = await axios.post(`${API_URL}/api/auth/login`, {
+    const res = await api.post(`${API_URL}/api/auth/login`, {
       username,
       password
     })
@@ -67,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const register = async (username: string, email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/api/auth/register`, {
+    const res = await api.post(`${API_URL}/api/auth/register`, {
       username,
       email,
       password
