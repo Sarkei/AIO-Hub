@@ -67,7 +67,6 @@ services:
       - /app/.next
     networks:
       - aiohub_net
-      - aiohub_net
 
   # Nginx Reverse Proxy
   proxy:
