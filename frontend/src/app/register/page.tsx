@@ -37,7 +37,12 @@ export default function RegisterPage() {
       await register(formData.username, formData.email, formData.password)
       router.push('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registrierung fehlgeschlagen')
+      console.error('Registration error:', err)
+      const errorMessage = err.response?.data?.message 
+        || err.response?.data?.error 
+        || err.message 
+        || 'Registrierung fehlgeschlagen'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

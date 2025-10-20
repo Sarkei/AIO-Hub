@@ -1,5 +1,5 @@
 # Backend Dockerfile für AIO Hub
-FROM node:18-alpine
+FROM node:18.20.8-alpine3.21
 
 # OpenSSL und andere benötigte Pakete installieren
 RUN apk add --no-cache openssl libc6-compat
