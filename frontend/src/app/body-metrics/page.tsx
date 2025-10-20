@@ -70,7 +70,7 @@ export default function BodyMetricsPage() {
         return;
       }
 
-      const response = await axios.get('http://localhost:4000/api/body-metrics', {
+      const response = await axios.get('/api/body-metrics', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -111,11 +111,11 @@ export default function BodyMetricsPage() {
       if (formData.notes) payload.notes = formData.notes;
 
       if (editingId) {
-        await axios.put(`http://localhost:4000/api/body-metrics/${editingId}`, payload, {
+        await axios.put(`/api/body-metrics/${editingId}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        await axios.post('http://localhost:4000/api/body-metrics', payload, {
+        await axios.post('/api/body-metrics', payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -152,7 +152,7 @@ export default function BodyMetricsPage() {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:4000/api/body-metrics/${id}`, {
+      await axios.delete(`/api/body-metrics/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchMetrics();

@@ -27,6 +27,8 @@ interface NutritionLog {
   notes?: string;
 }
 
+type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
+
 interface Stats {
   today: {
     total_calories: number;
@@ -64,9 +66,18 @@ export default function NutritionPage() {
     targetFat: 70
   });
 
-  const [logForm, setLogForm] = useState({
+  const [logForm, setLogForm] = useState<{ 
+    date: string;
+    mealType: MealType;
+    foodName: string;
+    calories: string;
+    protein: string;
+    carbs: string;
+    fat: string;
+    notes: string;
+  }>({
     date: new Date().toISOString().split('T')[0],
-    mealType: 'BREAKFAST' as const,
+    mealType: 'BREAKFAST',
     foodName: '',
     calories: '',
     protein: '',
@@ -89,7 +100,7 @@ export default function NutritionPage() {
 
       // Profile laden
       try {
-        const profileRes = await axios.get('http://localhost:4000/api/nutrition/profile', {
+        const profileRes = await axios.get('/api/nutrition/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setProfile(profileRes.data.profile);
@@ -109,13 +120,13 @@ export default function NutritionPage() {
 
       // Logs laden (für ausgewähltes Datum)
       const logsRes = await axios.get(
-        `http://localhost:4000/api/nutrition/logs?startDate=${selectedDate}&endDate=${selectedDate}`,
+        `/api/nutrition/logs?startDate=${selectedDate}&endDate=${selectedDate}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setLogs(logsRes.data.logs || []);
 
       // Stats laden
-      const statsRes = await axios.get('http://localhost:4000/api/nutrition/stats', {
+      const statsRes = await axios.get('/api/nutrition/stats', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(statsRes.data);
@@ -137,7 +148,7 @@ export default function NutritionPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        'http://localhost:4000/api/nutrition/profile',
+        '/api/nutrition/profile',
         {
           goal: profileForm.goal,
           dietType: profileForm.dietType,
@@ -172,11 +183,11 @@ export default function NutritionPage() {
       if (logForm.notes) payload.notes = logForm.notes;
 
       if (editingLogId) {
-        await axios.put(`http://localhost:4000/api/nutrition/logs/${editingLogId}`, payload, {
+        await axios.put(`/api/nutrition/logs/${editingLogId}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        await axios.post('http://localhost:4000/api/nutrition/logs', payload, {
+        await axios.post('/api/nutrition/logs', payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -204,7 +215,7 @@ export default function NutritionPage() {
     setEditingLogId(log.id);
     setLogForm({
       date: log.date,
-      mealType: log.meal_type,
+      mealType: log.meal_type as MealType,
       foodName: log.food_name,
       calories: log.calories.toString(),
       protein: log.protein?.toString() || '',
@@ -219,7 +230,7 @@ export default function NutritionPage() {
     if (!confirm('Eintrag löschen?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:4000/api/nutrition/logs/${id}`, {
+      await axios.delete(`/api/nutrition/logs/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();

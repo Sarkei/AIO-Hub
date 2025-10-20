@@ -10,8 +10,6 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-
 interface Todo {
   id: string
   user_id: string
@@ -68,7 +66,7 @@ export default function TodosPage() {
   const fetchTodos = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await axios.get(`${API_URL}/api/todos`, {
+      const res = await axios.get(`/api/todos`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setTodos(res.data.todos)
@@ -84,7 +82,7 @@ export default function TodosPage() {
     try {
       const token = localStorage.getItem('token')
       await axios.post(
-        `${API_URL}/api/todos`,
+        `/api/todos`,
         {
           ...formData,
           dueDate: formData.dueDate || null
@@ -108,7 +106,7 @@ export default function TodosPage() {
     try {
       const token = localStorage.getItem('token')
       await axios.put(
-        `${API_URL}/api/todos/${editingTodo.id}`,
+        `/api/todos/${editingTodo.id}`,
         {
           ...formData,
           dueDate: formData.dueDate || null
@@ -131,7 +129,7 @@ export default function TodosPage() {
 
     try {
       const token = localStorage.getItem('token')
-      await axios.delete(`${API_URL}/api/todos/${id}`, {
+      await axios.delete(`/api/todos/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       fetchTodos()
@@ -151,7 +149,7 @@ export default function TodosPage() {
     try {
       const token = localStorage.getItem('token')
       await axios.patch(
-        `${API_URL}/api/todos/${draggableId}/move`,
+        `/api/todos/${draggableId}/move`,
         {
           status: newStatus,
           order: destination.index

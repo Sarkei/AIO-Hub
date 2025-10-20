@@ -35,9 +35,9 @@ const PORT = process.env.PORT || 4000;
 // Security Headers
 app.use(helmet());
 
-// CORS aktivieren
+// CORS aktivieren (alle Origins erlauben, da wir über Nginx mit gleicher Origin arbeiten)
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: true, // reflektiert den Origin der Anfrage
   credentials: true
 }));
 

@@ -90,7 +90,7 @@ export default function GymPage() {
         return;
       }
 
-      const response = await axios.get('http://localhost:4000/api/workouts', {
+      const response = await axios.get('/api/workouts', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -111,7 +111,7 @@ export default function GymPage() {
   const fetchWorkoutDetails = async (workoutId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:4000/api/workouts/${workoutId}`, {
+      const response = await axios.get(`/api/workouts/${workoutId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data.workout;
@@ -125,7 +125,7 @@ export default function GymPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post('http://localhost:4000/api/workouts', workoutForm, {
+      const response = await axios.post('/api/workouts', workoutForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -156,7 +156,7 @@ export default function GymPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        `http://localhost:4000/api/workouts/${activeWorkout.id}/exercises`,
+        `/api/workouts/${activeWorkout.id}/exercises`,
         { name: exerciseName, notes: '' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -186,7 +186,7 @@ export default function GymPage() {
       if (setForm.notes) payload.notes = setForm.notes;
 
       await axios.post(
-        `http://localhost:4000/api/workouts/${activeWorkout.id}/exercises/${activeExercise.id}/sets`,
+        `/api/workouts/${activeWorkout.id}/exercises/${activeExercise.id}/sets`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -211,7 +211,7 @@ export default function GymPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.delete(
-        `http://localhost:4000/api/workouts/${activeWorkout.id}/exercises/${exerciseId}`,
+        `/api/workouts/${activeWorkout.id}/exercises/${exerciseId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -229,7 +229,7 @@ export default function GymPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.delete(
-        `http://localhost:4000/api/workouts/${activeWorkout.id}/exercises/${exerciseId}/sets/${setId}`,
+        `/api/workouts/${activeWorkout.id}/exercises/${exerciseId}/sets/${setId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -268,7 +268,7 @@ export default function GymPage() {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:4000/api/workouts/${workoutId}`, {
+      await axios.delete(`/api/workouts/${workoutId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchWorkouts();

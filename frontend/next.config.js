@@ -20,15 +20,7 @@ const nextConfig = {
     buildActivityPosition: 'bottom-right',
   },
   
-  // Erlaubte Dev Origins für NAS und lokale Entwicklung
-  experimental: {
-    allowedDevOrigins: [
-      'nas-timgreen01',
-      'nas-timgreen01.local',
-      'localhost',
-      '*.local'
-    ]
-  }
+  // Hinweis: 'experimental.allowedDevOrigins' ist entfernt, da nicht unterstützt
 }
 
 module.exports = nextConfig

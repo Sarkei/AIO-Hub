@@ -9,8 +9,6 @@ import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-
 interface Event {
   id: string
   user_id: string
@@ -58,7 +56,7 @@ export default function EventsPage() {
   const fetchEvents = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await axios.get(`${API_URL}/api/events`, {
+      const res = await axios.get(`/api/events`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setEvents(res.data.events)
@@ -85,13 +83,13 @@ export default function EventsPage() {
 
       if (editingEvent) {
         await axios.put(
-          `${API_URL}/api/events/${editingEvent.id}`,
+          `/api/events/${editingEvent.id}`,
           eventData,
           { headers: { Authorization: `Bearer ${token}` } }
         )
       } else {
         await axios.post(
-          `${API_URL}/api/events`,
+          `/api/events`,
           eventData,
           { headers: { Authorization: `Bearer ${token}` } }
         )
@@ -111,7 +109,7 @@ export default function EventsPage() {
 
     try {
       const token = localStorage.getItem('token')
-      await axios.delete(`${API_URL}/api/events/${id}`, {
+      await axios.delete(`/api/events/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       fetchEvents()
