@@ -26,6 +26,17 @@ model User {
   @@map("users")
 }
 
+// USER PREFERENCES (für Sidebar State etc.)
+model UserPreferences {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  collapsedCategories   String[] @default([]) @map("collapsed_categories") // Array der collapsed category IDs
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("user_preferences")
+}
+
 // ============================================
 // USER-SPEZIFISCHE TABELLEN
 // Die werden pro User in separatem Schema angelegt

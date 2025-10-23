@@ -8,6 +8,8 @@ import { Response } from 'express';
 import { validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import * as fs from 'fs';
+import * as path from 'path';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { createUserSchema } from '../services/schema.service';
@@ -72,6 +74,20 @@ export class AuthController {
       console.log('🔧 Creating user schema:', schemaName);
       await createUserSchema(schemaName);
       console.log('✅ Schema created successfully');
+
+      // Benutzerordner im Dateisystem erstellen
+      try {
+        const userDataPath = path.join('/volume1/docker/AIO-Hub-Data', username);
+        if (!fs.existsSync(userDataPath)) {
+          fs.mkdirSync(userDataPath, { recursive: true });
+          console.log('📁 User folder created:', userDataPath);
+        } else {
+          console.log('📁 User folder already exists:', userDataPath);
+        }
+      } catch (folderError) {
+        console.error('⚠️ Failed to create user folder:', folderError);
+        // Continue registration even if folder creation fails
+      }
 
       // JWT Token generieren
       const token = jwt.sign(
