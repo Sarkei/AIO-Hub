@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 /**
  * Get user preferences
  */
-export const getPreferences = async (req: Request, res: Response) => {
+export const getPreferences = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.id;
 
@@ -34,13 +34,14 @@ export const getPreferences = async (req: Request, res: Response) => {
 /**
  * Update collapsed categories
  */
-export const updateCollapsedCategories = async (req: Request, res: Response) => {
+export const updateCollapsedCategories = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.id;
     const { collapsedCategories } = req.body;
 
     if (!Array.isArray(collapsedCategories)) {
-      return res.status(400).json({ message: 'collapsedCategories must be an array' });
+      res.status(400).json({ message: 'collapsedCategories must be an array' });
+      return;
     }
 
     const preferences = await prisma.userPreferences.upsert({
