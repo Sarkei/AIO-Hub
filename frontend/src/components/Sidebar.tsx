@@ -76,9 +76,11 @@ const navCategories: NavCategory[] = [
     title: 'Schule',
     icon: '🎓',
     items: [
-      { href: '/todos', label: 'Todos', icon: '✅' },
-      { href: '/events', label: 'Termine', icon: '📅' },
-      { href: '/calendar', label: 'Kalender', icon: '�️' },
+      { href: '/school/overview', label: 'Übersicht', icon: '📚' },
+      { href: '/school/timetable', label: 'Stundenplan', icon: '🗓️' },
+      { href: '/school/todos', label: 'Aufgaben', icon: '✅' },
+      { href: '/school/notes', label: 'Notizen', icon: '�' },
+      { href: '/school/grades', label: 'Noten', icon: '📊' },
     ]
   }
 ]
