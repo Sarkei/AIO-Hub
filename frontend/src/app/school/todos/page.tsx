@@ -14,6 +14,7 @@ export default function SchoolTodosPage() {
 
   useEffect(() => {
     fetchTodos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchTodos = async () => {

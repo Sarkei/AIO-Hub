@@ -33,6 +33,7 @@ export default function SchoolOverviewPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
@@ -274,7 +275,6 @@ export default function SchoolOverviewPage() {
                     {!year.is_active && (
                       <Button
                         onClick={() => handleActivate(year.id)}
-                        variant="outline"
                         size="sm"
                       >
                         Aktivieren
@@ -349,7 +349,6 @@ export default function SchoolOverviewPage() {
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
                       onClick={() => setShowCreateModal(false)}
                     >
                       Abbrechen

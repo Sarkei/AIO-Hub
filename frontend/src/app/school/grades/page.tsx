@@ -14,6 +14,7 @@ export default function GradesPage() {
 
   useEffect(() => {
     fetchGrades();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchGrades = async () => {
