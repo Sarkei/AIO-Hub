@@ -221,7 +221,11 @@ export default function EventsPage() {
                   aria-selected={viewMode === 'upcoming'}
                   aria-controls="events-upcoming"
                   onClick={() => setViewMode('upcoming')}
-                  className={viewMode === 'upcoming' ? 'bg-white' : ''}
+                  style={{
+                    backgroundColor: viewMode === 'upcoming' ? 'rgb(var(--accent))' : 'transparent',
+                    color: viewMode === 'upcoming' ? 'white' : 'rgb(var(--fg-muted))',
+                    fontWeight: viewMode === 'upcoming' ? '600' : '500'
+                  }}
                 >
                   Anstehend
                 </Button>
@@ -231,7 +235,11 @@ export default function EventsPage() {
                   aria-selected={viewMode === 'list'}
                   aria-controls="events-list"
                   onClick={() => setViewMode('list')}
-                  className={viewMode === 'list' ? 'bg-white' : ''}
+                  style={{
+                    backgroundColor: viewMode === 'list' ? 'rgb(var(--accent))' : 'transparent',
+                    color: viewMode === 'list' ? 'white' : 'rgb(var(--fg-muted))',
+                    fontWeight: viewMode === 'list' ? '600' : '500'
+                  }}
                 >
                   Vergangene
                 </Button>

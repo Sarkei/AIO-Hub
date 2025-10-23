@@ -1,19 +1,20 @@
 /**
  * ════════════════════════════════════════════════════════════════════════════
- * 🧭 Sidebar Navigation - Linear/Notion-inspired Design
+ * 🧭 Sidebar Navigation - Linear/Notion-inspired Design with Collapsible Categories
  * ════════════════════════════════════════════════════════════════════════════
  * 
  * Features:
  * - Clean, minimal design with clear hierarchy
  * - Active state with accent indicator bar (Linear-style)
+ * - 3 collapsible categories: Produktivität, Gesundheit & Fitness, Finanzen
  * - Smooth hover transitions with background + scale effect
  * - Gradient logo badge
  * - Icon-first navigation with consistent spacing
- * - Theme toggle integrated seamlessly
  * - User profile section with avatar placeholder
  * 
  * UX Improvements:
  * - Active indicator bar on left (better visual feedback)
+ * - Category headers with collapse toggle
  * - Icon alignment for better scannability
  * - Hover effects with subtle scale (0.98 → 1.0)
  * - Focus states for keyboard navigation
@@ -24,25 +25,71 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import ThemeToggle from './ThemeToggle'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: '🚀' },
-  { href: '/todos', label: 'Todos', icon: '✅' },
-  { href: '/events', label: 'Termine', icon: '📅' },
-  { href: '/calendar', label: 'Kalender', icon: '🗓️' },
-  { href: '/body-metrics', label: 'Körperdaten', icon: '💪' },
-  { href: '/gym', label: 'Gym', icon: '🏋️' },
-  { href: '/nutrition', label: 'Ernährung', icon: '🍎' },
-  { href: '/finance', label: 'Finanzen', icon: '💰' },
-  { href: '/goals', label: 'Ziele & Habits', icon: '🎯' },
-  { href: '/settings', label: 'Einstellungen', icon: '⚙️' },
+interface NavItem {
+  href: string
+  label: string
+  icon: string
+}
+
+interface NavCategory {
+  id: string
+  title: string
+  icon: string
+  items: NavItem[]
+}
+
+const navCategories: NavCategory[] = [
+  {
+    id: 'productivity',
+    title: 'Produktivität',
+    icon: '⚡',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: '🚀' },
+      { href: '/todos', label: 'Todos', icon: '✅' },
+      { href: '/events', label: 'Termine', icon: '📅' },
+      { href: '/calendar', label: 'Kalender', icon: '🗓️' },
+    ]
+  },
+  {
+    id: 'health',
+    title: 'Gesundheit & Fitness',
+    icon: '💪',
+    items: [
+      { href: '/body-metrics', label: 'Körperdaten', icon: '�' },
+      { href: '/gym', label: 'Gym', icon: '🏋️' },
+      { href: '/nutrition', label: 'Ernährung', icon: '🍎' },
+      { href: '/goals', label: 'Ziele & Habits', icon: '🎯' },
+    ]
+  },
+  {
+    id: 'finance',
+    title: 'Finanzen',
+    icon: '💰',
+    items: [
+      { href: '/finance', label: 'Finanzen', icon: '💳' },
+    ]
+  }
 ]
 
 export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+
+  const toggleCategory = (categoryId: string) => {
+    setCollapsedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId)
+      } else {
+        newSet.add(categoryId)
+      }
+      return newSet
+    })
+  }
 
   return (
     <aside 
@@ -118,63 +165,98 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2">
-        <ul className="space-y-0.5">
-          {navItems.map((item) => {
-            const active = pathname === item.href
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group"
-                  style={{
-                    backgroundColor: active ? 'rgba(var(--accent), 0.12)' : 'transparent',
-                    color: active ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))',
-                    transform: 'scale(1)',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.backgroundColor = 'rgba(var(--fg), 0.06)'
-                      e.currentTarget.style.color = 'rgb(var(--fg))'
-                      e.currentTarget.style.transform = 'scale(1.02)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = 'rgb(var(--fg-muted))'
-                      e.currentTarget.style.transform = 'scale(1)'
-                    }
-                  }}
-                >
-                  {/* Active Indicator Bar (Linear-style) */}
-                  {active && (
-                    <div 
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
-                      style={{ 
-                        backgroundColor: 'rgb(var(--accent))',
-                        boxShadow: '0 0 8px rgba(var(--accent), 0.5)'
-                      }}
-                    />
-                  )}
-                  
-                  <span className="text-lg w-6 flex items-center justify-center">
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                  
-                  {/* Hover Arrow (appears on hover) */}
-                  <span 
-                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ color: 'rgb(var(--fg-subtle))' }}
-                  >
-                    →
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+        {navCategories.map((category) => (
+          <div key={category.id} className="mb-2">
+            {/* Category Header */}
+            <button
+              onClick={() => toggleCategory(category.id)}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={{
+                color: 'rgb(var(--fg-subtle))',
+                backgroundColor: 'transparent',
+                transition: 'all var(--transition-fast)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(var(--fg), 0.04)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">{category.icon}</span>
+                <span>{category.title}</span>
+              </div>
+              <span className="text-xs transition-transform" style={{
+                transform: collapsedCategories.has(category.id) ? 'rotate(-90deg)' : 'rotate(0deg)'
+              }}>
+                ▼
+              </span>
+            </button>
+
+            {/* Category Items */}
+            {!collapsedCategories.has(category.id) && (
+              <ul className="space-y-0.5 mt-1">
+                {category.items.map((item) => {
+                  const active = pathname === item.href
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group"
+                        style={{
+                          backgroundColor: active ? 'rgba(var(--accent), 0.12)' : 'transparent',
+                          color: active ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))',
+                          transform: 'scale(1)',
+                          transition: 'all var(--transition-fast)',
+                          marginLeft: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!active) {
+                            e.currentTarget.style.backgroundColor = 'rgba(var(--fg), 0.06)'
+                            e.currentTarget.style.color = 'rgb(var(--fg))'
+                            e.currentTarget.style.transform = 'scale(1.02)'
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!active) {
+                            e.currentTarget.style.backgroundColor = 'transparent'
+                            e.currentTarget.style.color = 'rgb(var(--fg-muted))'
+                            e.currentTarget.style.transform = 'scale(1)'
+                          }
+                        }}
+                      >
+                        {/* Active Indicator Bar (Linear-style) */}
+                        {active && (
+                          <div 
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+                            style={{ 
+                              backgroundColor: 'rgb(var(--accent))',
+                              boxShadow: '0 0 8px rgba(var(--accent), 0.5)'
+                            }}
+                          />
+                        )}
+                        
+                        <span className="text-lg w-6 flex items-center justify-center">
+                          {item.icon}
+                        </span>
+                        <span>{item.label}</span>
+                        
+                        {/* Hover Arrow (appears on hover) */}
+                        <span 
+                          className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ color: 'rgb(var(--fg-subtle))' }}
+                        >
+                          →
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        ))}
       </nav>
 
       {/* Bottom Section */}
@@ -182,11 +264,33 @@ export default function Sidebar() {
         className="p-3 space-y-2"
         style={{ borderTop: '1px solid rgb(var(--card-border))' }}
       >
-        <ThemeToggle />
+        {/* Settings Button - Centered */}
+        <Link
+          href="/settings"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all"
+          style={{
+            color: 'rgb(var(--fg))',
+            backgroundColor: pathname === '/settings' ? 'rgba(var(--accent), 0.12)' : 'rgba(var(--fg), 0.06)',
+            border: '1px solid rgb(var(--card-border))',
+            transition: 'all var(--transition-fast)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(var(--accent), 0.15)'
+            e.currentTarget.style.borderColor = 'rgba(var(--accent), 0.3)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = pathname === '/settings' ? 'rgba(var(--accent), 0.12)' : 'rgba(var(--fg), 0.06)'
+            e.currentTarget.style.borderColor = 'rgb(var(--card-border))'
+          }}
+        >
+          <span className="text-lg">⚙️</span>
+          <span>Einstellungen</span>
+        </Link>
         
+        {/* Logout Button - Centered */}
         <button
           onClick={logout}
-          className="w-full px-3 py-2 text-sm font-medium rounded-lg transition-all"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all"
           style={{
             color: 'rgb(var(--danger))',
             backgroundColor: 'transparent',
@@ -202,7 +306,8 @@ export default function Sidebar() {
             e.currentTarget.style.borderColor = 'rgba(var(--danger), 0.3)'
           }}
         >
-          🚪 Abmelden
+          <span className="text-lg">🚪</span>
+          <span>Abmelden</span>
         </button>
       </div>
     </aside>
