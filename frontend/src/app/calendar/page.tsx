@@ -73,22 +73,6 @@ export default function CalendarPage() {
     fetchEvents()
   }, [fetchEvents])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        goToPreviousWeek()
-      } else if (e.key === 'ArrowRight') {
-        goToNextWeek()
-      } else if (e.key === 't' || e.key === 'T') {
-        goToToday()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [goToPreviousWeek, goToNextWeek, goToToday])
-
   const getWeekDays = (date: Date): Date[] => {
     const start = new Date(date)
     const day = start.getDay()
@@ -122,6 +106,22 @@ export default function CalendarPage() {
       return newDate
     })
   }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        goToPreviousWeek()
+      } else if (e.key === 'ArrowRight') {
+        goToNextWeek()
+      } else if (e.key === 't' || e.key === 'T') {
+        goToToday()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [goToPreviousWeek, goToNextWeek, goToToday])
 
   const weekDays = getWeekDays(currentDate)
 
