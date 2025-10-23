@@ -46,10 +46,11 @@ export default function GradesPage() {
   }, {} as Record<string, any[]>);
 
   // Berechne Durchschnitt pro Fach
-  const calculateAverage = (subjectGrades: any[]) => {
-    if (subjectGrades.length === 0) return 0;
-    const totalWeight = subjectGrades.reduce((sum, g) => sum + g.weight, 0);
-    const weightedSum = subjectGrades.reduce((sum, g) => sum + (g.grade * g.weight), 0);
+  const calculateAverage = (subjectGrades: any[] | unknown) => {
+    const grades = subjectGrades as any[];
+    if (!grades || grades.length === 0) return 0;
+    const totalWeight = grades.reduce((sum, g) => sum + g.weight, 0);
+    const weightedSum = grades.reduce((sum, g) => sum + (g.grade * g.weight), 0);
     return (weightedSum / totalWeight).toFixed(2);
   };
 
@@ -80,19 +81,21 @@ export default function GradesPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {Object.entries(gradesBySubject).map(([subject, subjectGrades]) => (
-              <Card key={subject}>
+            {Object.entries(gradesBySubject).map(([subject, subjectGrades]) => {
+              const gradesArray = subjectGrades as any[];
+              return (
+                <Card key={subject}>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
                     {subject}
                   </h3>
                   <div className="text-2xl font-bold" style={{ color: 'rgb(var(--accent))' }}>
-                    ⌀ {calculateAverage(subjectGrades)}
+                    ⌀ {calculateAverage(gradesArray)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-3">
-                    {subjectGrades.map((grade) => (
+                    {gradesArray.map((grade) => (
                       <div
                         key={grade.id}
                         className="p-4 rounded-lg"
@@ -122,8 +125,9 @@ export default function GradesPage() {
                     ))}
                   </div>
                 </CardContent>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
