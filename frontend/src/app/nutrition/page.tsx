@@ -154,7 +154,7 @@ export default function NutritionPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        '/api/nutrition/profile',
+        'http://localhost:4000/api/nutrition/profile',
         {
           goal: profileForm.goal,
           dietType: profileForm.dietType,

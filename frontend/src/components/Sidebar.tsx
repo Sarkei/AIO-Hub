@@ -6,7 +6,8 @@
  * Features:
  * - Clean, minimal design with clear hierarchy
  * - Active state with accent indicator bar (Linear-style)
- * - 3 collapsible categories: Produktivität, Gesundheit & Fitness, Finanzen
+ * - 3 custom collapsible categories: Privat, Arbeit, Schule
+ * - Persistent collapse state via backend API (stored in database)
  * - Smooth hover transitions with background + scale effect
  * - Gradient logo badge
  * - Icon-first navigation with consistent spacing
@@ -19,14 +20,16 @@
  * - Hover effects with subtle scale (0.98 → 1.0)
  * - Focus states for keyboard navigation
  * - Smooth transitions (150ms) on all interactions
+ * - Collapse state persisted across sessions in database
  */
 
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import axios from 'axios'
 
 interface NavItem {
   href: string
@@ -43,33 +46,39 @@ interface NavCategory {
 
 const navCategories: NavCategory[] = [
   {
-    id: 'productivity',
-    title: 'Produktivität',
-    icon: '⚡',
+    id: 'privat',
+    title: 'Privat',
+    icon: '🏠',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: '🚀' },
+      { href: '/todos', label: 'Todos', icon: '✅' },
+      { href: '/events', label: 'Termine', icon: '📅' },
+      { href: '/calendar', label: 'Kalender', icon: '🗓️' },
+      { href: '/body-metrics', label: 'Körperdaten', icon: '📊' },
+      { href: '/gym', label: 'Gym', icon: '🏋️' },
+      { href: '/nutrition', label: 'Ernährung', icon: '🍎' },
+      { href: '/goals', label: 'Ziele & Habits', icon: '🎯' },
+      { href: '/finance', label: 'Finanzen', icon: '💳' },
+    ]
+  },
+  {
+    id: 'arbeit',
+    title: 'Arbeit',
+    icon: '�',
+    items: [
       { href: '/todos', label: 'Todos', icon: '✅' },
       { href: '/events', label: 'Termine', icon: '📅' },
       { href: '/calendar', label: 'Kalender', icon: '🗓️' },
     ]
   },
   {
-    id: 'health',
-    title: 'Gesundheit & Fitness',
-    icon: '💪',
+    id: 'schule',
+    title: 'Schule',
+    icon: '🎓',
     items: [
-      { href: '/body-metrics', label: 'Körperdaten', icon: '�' },
-      { href: '/gym', label: 'Gym', icon: '🏋️' },
-      { href: '/nutrition', label: 'Ernährung', icon: '🍎' },
-      { href: '/goals', label: 'Ziele & Habits', icon: '🎯' },
-    ]
-  },
-  {
-    id: 'finance',
-    title: 'Finanzen',
-    icon: '💰',
-    items: [
-      { href: '/finance', label: 'Finanzen', icon: '💳' },
+      { href: '/todos', label: 'Todos', icon: '✅' },
+      { href: '/events', label: 'Termine', icon: '📅' },
+      { href: '/calendar', label: 'Kalender', icon: '�️' },
     ]
   }
 ]
@@ -79,16 +88,59 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
-  const toggleCategory = (categoryId: string) => {
-    setCollapsedCategories(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(categoryId)) {
-        newSet.delete(categoryId)
-      } else {
-        newSet.add(categoryId)
+  // Load collapsed categories from backend on mount
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) return
+
+        const response = await axios.get('http://localhost:4000/api/preferences', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+
+        if (response.data?.collapsedCategories) {
+          setCollapsedCategories(new Set(response.data.collapsedCategories))
+        }
+      } catch (error) {
+        console.error('Failed to fetch preferences:', error)
       }
-      return newSet
-    })
+    }
+
+    if (user) {
+      fetchPreferences()
+    }
+  }, [user])
+
+  // Save collapsed categories to backend when they change
+  const toggleCategory = async (categoryId: string) => {
+    const newSet = new Set(collapsedCategories)
+    if (newSet.has(categoryId)) {
+      newSet.delete(categoryId)
+    } else {
+      newSet.add(categoryId)
+    }
+    setCollapsedCategories(newSet)
+
+    // Persist to backend
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      await axios.put(
+        'http://localhost:4000/api/preferences/collapsed-categories',
+        { collapsedCategories: Array.from(newSet) },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Failed to save preferences:', error)
+    }
   }
 
   return (
