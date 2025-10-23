@@ -200,3 +200,124 @@ model NutritionLog {
   @@map("nutrition_logs")
   @@index([userId, date])
 }
+
+// ============================================
+// SCHOOL SYSTEM
+// ============================================
+
+// Schuljahr/Lehrjahr (z.B. 1. Lehrjahr 2024/2025)
+model SchoolYear {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String   // z.B. "1. Lehrjahr", "2. Semester"
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  isActive    Boolean  @default(false) @map("is_active") // Nur ein aktives Jahr pro User
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  timetableEntries TimetableEntry[]
+  schoolTodos      SchoolTodo[]
+  grades           Grade[]
+
+  @@map("school_years")
+  @@index([userId, isActive])
+}
+
+// Stundenplan
+model TimetableEntry {
+  id            String     @id @default(uuid())
+  schoolYearId  String     @map("school_year_id")
+  subject       String     // Fach (z.B. "Mathematik", "Programmieren")
+  teacher       String?    // Lehrer
+  room          String?    // Raum
+  dayOfWeek     Int        @map("day_of_week") // 1=Montag, 7=Sonntag
+  startTime     String     @map("start_time") // Format: "08:00"
+  endTime       String     @map("end_time")   // Format: "09:30"
+  color         String?    // Hex color für UI
+  notes         String?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id], onDelete: Cascade)
+
+  @@map("timetable_entries")
+  @@index([schoolYearId, dayOfWeek])
+}
+
+// Schul-Todos/Aufgaben
+model SchoolTodo {
+  id            String       @id @default(uuid())
+  schoolYearId  String       @map("school_year_id")
+  subject       String       // Fach
+  title         String
+  description   String?
+  dueDate       DateTime?    @map("due_date") @db.Date
+  status        TodoStatus   @default(OPEN)
+  priority      Int          @default(1) // 1=low, 2=medium, 3=high
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  schoolYear    SchoolYear   @relation(fields: [schoolYearId], references: [id], onDelete: Cascade)
+
+  @@map("school_todos")
+  @@index([schoolYearId, status, dueDate])
+}
+
+// Notizen-Ordner (Physische Ordnerstruktur)
+model NoteFolder {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  path        String   // Relativer Pfad (z.B. "Mathematik/Algebra")
+  parentId    String?  @map("parent_id") // Für Unterordner
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent      NoteFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    NoteFolder[] @relation("FolderHierarchy")
+  notes       Note[]
+
+  @@unique([userId, path])
+  @@map("note_folders")
+  @@index([userId, parentId])
+}
+
+// Notizen
+model Note {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  folderId    String?     @map("folder_id")
+  title       String
+  content     String      @db.Text
+  filePath    String?     @map("file_path") // Physischer Pfad auf Server
+  tags        String[]    @default([])
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  folder      NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@map("notes")
+  @@index([userId, folderId])
+}
+
+// Noten/Bewertungen
+model Grade {
+  id            String     @id @default(uuid())
+  schoolYearId  String     @map("school_year_id")
+  subject       String     // Fach
+  title         String     // z.B. "Klausur 1", "Mündliche Prüfung"
+  grade         Float      // Note (z.B. 1.0, 2.3, 85%)
+  maxGrade      Float      @map("max_grade") // Maximale Note (z.B. 1.0 oder 100)
+  weight        Float      @default(1.0) // Gewichtung für Durchschnitt
+  date          DateTime   @db.Date
+  notes         String?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id], onDelete: Cascade)
+
+  @@map("grades")
+  @@index([schoolYearId, subject, date])
+}
+

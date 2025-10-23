@@ -22,6 +22,7 @@ import bodyMetricRoutes from './routes/bodymetric.routes';
 import workoutRoutes from './routes/workout.routes';
 import nutritionRoutes from './routes/nutrition.routes';
 import preferencesRoutes from './routes/preferences.routes';
+import schoolRoutes from './routes/school.routes';
 
 // Umgebungsvariablen laden
 dotenv.config();
@@ -73,6 +74,7 @@ app.use('/api/body-metrics', bodyMetricRoutes);
 app.use('/api/workouts', workoutRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/preferences', preferencesRoutes);
+app.use('/api/school', schoolRoutes);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {
