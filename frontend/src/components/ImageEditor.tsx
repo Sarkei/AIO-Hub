@@ -190,6 +190,7 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
     const dataURL = canvas.toDataURL({
       format: 'png',
       quality: 1,
+      multiplier: 1,
     });
     
     const link = document.createElement('a');
