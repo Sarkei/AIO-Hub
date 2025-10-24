@@ -5,15 +5,15 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
 import AppLayout from '@/components/AppLayout';
-import PDFViewer from '@/components/PDFViewer';
-import ImageEditor from '@/components/ImageEditor';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Label from '@/components/ui/Label';
 
-// Dynamic import für React Quill (nur client-side)
+// Dynamic imports für client-side only components
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+const PDFViewer = dynamic(() => import('@/components/PDFViewer'), { ssr: false });
+const ImageEditor = dynamic(() => import('@/components/ImageEditor'), { ssr: false });
 
 // React Quill CSS - wird nur client-side geladen
 if (typeof window !== 'undefined') {
