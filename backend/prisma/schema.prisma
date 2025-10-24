@@ -277,6 +277,7 @@ model NoteFolder {
   parent      NoteFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children    NoteFolder[] @relation("FolderHierarchy")
   notes       Note[]
+  files       NoteFile[]
 
   @@unique([userId, path])
   @@map("note_folders")
@@ -290,15 +291,38 @@ model Note {
   folderId    String?     @map("folder_id")
   title       String
   content     String      @db.Text
-  filePath    String?     @map("file_path") // Physischer Pfad auf Server
   tags        String[]    @default([])
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   folder      NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  files       NoteFile[]
 
   @@map("notes")
   @@index([userId, folderId])
+}
+
+// Datei-Uploads für Notizen
+model NoteFile {
+  id            String   @id @default(uuid())
+  noteId        String?  @map("note_id")
+  userId        String   @map("user_id")
+  folderId      String?  @map("folder_id")
+  filename      String   // Original Dateiname
+  storedName    String   @map("stored_name") // UUID_filename.ext
+  filePath      String   @map("file_path") // Physischer Pfad
+  fileType      String   @map("file_type") // MIME type (application/pdf, image/jpeg, etc.)
+  fileSize      Int      @map("file_size") // Bytes
+  annotations   Json?    // JSON für PDF/Bild-Annotationen
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  note          Note?       @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  folder        NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@map("note_files")
+  @@index([userId, folderId])
+  @@index([noteId])
 }
 
 // Noten/Bewertungen

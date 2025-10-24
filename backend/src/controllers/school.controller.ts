@@ -715,4 +715,332 @@ export class SchoolController {
       });
     }
   }
+
+  // ============================================
+  // DATEI-UPLOADS FÜR NOTIZEN
+  // ============================================
+
+  /**
+   * Datei hochladen
+   */
+  async uploadFile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: 'No file provided'
+        });
+        return;
+      }
+
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { noteId, folderId } = req.body;
+
+      const id = uuidv4();
+      const file = req.file;
+
+      await prisma.$queryRawUnsafe(`
+        INSERT INTO "${schemaName}"."note_files"
+        (id, note_id, user_id, folder_id, filename, stored_name, file_path, file_type, file_size, created_at, updated_at)
+        VALUES (
+          '${id}',
+          ${noteId ? `'${noteId}'` : 'NULL'},
+          '${userId}',
+          ${folderId ? `'${folderId}'` : 'NULL'},
+          '${file.originalname.replace(/'/g, "''")}',
+          '${file.filename}',
+          '${file.path.replace(/\\/g, '\\\\')}',
+          '${file.mimetype}',
+          ${file.size},
+          NOW(),
+          NOW()
+        )
+      `);
+
+      const uploadedFile: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."note_files"
+        WHERE id = '${id}'
+      `);
+
+      res.status(201).json({
+        message: 'File uploaded successfully',
+        file: uploadedFile[0]
+      });
+    } catch (error) {
+      console.error('Upload file error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to upload file'
+      });
+    }
+  }
+
+  /**
+   * Alle Dateien eines Ordners abrufen
+   */
+  async getFiles(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { folderId, noteId } = req.query;
+
+      let query = `
+        SELECT * FROM "${schemaName}"."note_files"
+        WHERE user_id = '${userId}'
+      `;
+
+      if (folderId) {
+        query += ` AND folder_id = '${folderId}'`;
+      }
+
+      if (noteId) {
+        query += ` AND note_id = '${noteId}'`;
+      }
+
+      query += ` ORDER BY created_at DESC`;
+
+      const files = await prisma.$queryRawUnsafe(query);
+
+      res.status(200).json({ files });
+    } catch (error) {
+      console.error('Get files error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch files'
+      });
+    }
+  }
+
+  /**
+   * Datei herunterladen/anzeigen
+   */
+  async getFile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { id } = req.params;
+
+      const fileRecord: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."note_files"
+        WHERE id = '${id}' AND user_id = '${userId}'
+      `);
+
+      if (!fileRecord || fileRecord.length === 0) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'File not found'
+        });
+        return;
+      }
+
+      const file = fileRecord[0];
+
+      // Prüfen ob Datei existiert
+      if (!fs.existsSync(file.file_path)) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'File not found on disk'
+        });
+        return;
+      }
+
+      // Content-Type setzen
+      res.setHeader('Content-Type', file.file_type);
+      res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`);
+
+      // Datei streamen
+      const fileStream = fs.createReadStream(file.file_path);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Get file error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to retrieve file'
+      });
+    }
+  }
+
+  /**
+   * Datei-Annotationen speichern
+   */
+  async saveFileAnnotations(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { id } = req.params;
+      const { annotations } = req.body;
+
+      const fileRecord: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."note_files"
+        WHERE id = '${id}' AND user_id = '${userId}'
+      `);
+
+      if (!fileRecord || fileRecord.length === 0) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'File not found'
+        });
+        return;
+      }
+
+      // Annotationen als JSON speichern
+      const annotationsJson = JSON.stringify(annotations).replace(/'/g, "''");
+
+      await prisma.$queryRawUnsafe(`
+        UPDATE "${schemaName}"."note_files"
+        SET annotations = '${annotationsJson}'::jsonb,
+            updated_at = NOW()
+        WHERE id = '${id}'
+      `);
+
+      res.status(200).json({
+        message: 'Annotations saved successfully'
+      });
+    } catch (error) {
+      console.error('Save annotations error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to save annotations'
+      });
+    }
+  }
+
+  /**
+   * Datei löschen
+   */
+  async deleteFile(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { id } = req.params;
+
+      const fileRecord: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."note_files"
+        WHERE id = '${id}' AND user_id = '${userId}'
+      `);
+
+      if (!fileRecord || fileRecord.length === 0) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'File not found'
+        });
+        return;
+      }
+
+      const file = fileRecord[0];
+
+      // Datei von Disk löschen
+      if (fs.existsSync(file.file_path)) {
+        fs.unlinkSync(file.file_path);
+      }
+
+      // DB Eintrag löschen
+      await prisma.$queryRawUnsafe(`
+        DELETE FROM "${schemaName}"."note_files"
+        WHERE id = '${id}'
+      `);
+
+      res.status(200).json({
+        message: 'File deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete file error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to delete file'
+      });
+    }
+  }
+
+  /**
+   * Notiz aktualisieren
+   */
+  async updateNote(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { id } = req.params;
+      const { title, content, tags } = req.body;
+
+      const noteRecord: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."notes"
+        WHERE id = '${id}' AND user_id = '${userId}'
+      `);
+
+      if (!noteRecord || noteRecord.length === 0) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'Note not found'
+        });
+        return;
+      }
+
+      const tagsArray = tags ? `ARRAY[${tags.map((t: string) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]` : 'ARRAY[]::text[]';
+
+      await prisma.$queryRawUnsafe(`
+        UPDATE "${schemaName}"."notes"
+        SET title = '${title.replace(/'/g, "''")}',
+            content = '${content.replace(/'/g, "''")}',
+            tags = ${tagsArray},
+            updated_at = NOW()
+        WHERE id = '${id}'
+      `);
+
+      const note: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."notes"
+        WHERE id = '${id}'
+      `);
+
+      res.status(200).json({
+        message: 'Note updated successfully',
+        note: note[0]
+      });
+    } catch (error) {
+      console.error('Update note error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to update note'
+      });
+    }
+  }
+
+  /**
+   * Notiz löschen
+   */
+  async deleteNote(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { id } = req.params;
+
+      const noteRecord: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."notes"
+        WHERE id = '${id}' AND user_id = '${userId}'
+      `);
+
+      if (!noteRecord || noteRecord.length === 0) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'Note not found'
+        });
+        return;
+      }
+
+      await prisma.$queryRawUnsafe(`
+        DELETE FROM "${schemaName}"."notes"
+        WHERE id = '${id}'
+      `);
+
+      res.status(200).json({
+        message: 'Note deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete note error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to delete note'
+      });
+    }
+  }
 }

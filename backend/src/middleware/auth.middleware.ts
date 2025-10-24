@@ -13,6 +13,7 @@ export interface AuthRequest extends Request {
     username: string;
     schemaName: string;
   };
+  file?: Express.Multer.File;
 }
 
 /**
