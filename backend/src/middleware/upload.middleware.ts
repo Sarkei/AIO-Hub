@@ -22,7 +22,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // Storage Configuration
 const storage = multer.diskStorage({
-  destination: (req: Request & { user?: any }, file, cb) => {
+  destination: async (req: Request & { user?: any }, file, cb) => {
     try {
       const username = req.user?.username || 'default';
       const folderId = req.body.folderId || '';
@@ -30,9 +30,32 @@ const storage = multer.diskStorage({
       // Base path für User
       const basePath = `/volume1/docker/AIO-Hub-Data/${username}`;
       
-      // Wenn folderId vorhanden, Ordnerpfad ermitteln (später aus DB)
-      // Für jetzt: flache Struktur
-      const uploadPath = path.join(basePath, folderId || 'uploads');
+      let uploadPath = basePath;
+      
+      // Wenn folderId vorhanden, Ordnerpfad aus DB holen
+      if (folderId && req.user?.schemaName) {
+        try {
+          const { prisma } = await import('../prisma/client');
+          const folder: any = await prisma.$queryRawUnsafe(`
+            SELECT path FROM "${req.user.schemaName}"."note_folders"
+            WHERE id = '${folderId}' AND user_id = '${req.user.id}'
+            LIMIT 1
+          `);
+          
+          if (folder && folder.length > 0) {
+            uploadPath = path.join(basePath, folder[0].path);
+          } else {
+            // Fallback: uploads Ordner
+            uploadPath = path.join(basePath, 'uploads');
+          }
+        } catch (dbError) {
+          console.error('DB query failed in upload middleware:', dbError);
+          uploadPath = path.join(basePath, 'uploads');
+        }
+      } else {
+        // Kein Ordner ausgewählt: uploads Ordner
+        uploadPath = path.join(basePath, 'uploads');
+      }
       
       // Ordner erstellen falls nicht vorhanden
       if (!fs.existsSync(uploadPath)) {

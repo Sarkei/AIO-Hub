@@ -577,9 +577,14 @@ export class SchoolController {
         if (folder && folder.length > 0) {
           const fileName = `${title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß]/g, '_')}_${id}.md`;
           filePath = path.join(folder[0].path, fileName);
-          const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, 'notes', filePath);
+          const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, filePath);
           
           try {
+            // Stelle sicher dass der Ordner existiert
+            const dirPath = path.dirname(physicalPath);
+            if (!fs.existsSync(dirPath)) {
+              fs.mkdirSync(dirPath, { recursive: true });
+            }
             fs.writeFileSync(physicalPath, content, 'utf8');
             console.log('📄 Note file created:', physicalPath);
           } catch (fsError) {
@@ -598,8 +603,8 @@ export class SchoolController {
           ${folderId ? `'${folderId}'` : 'NULL'},
           '${title.replace(/'/g, "''")}',
           '${content.replace(/'/g, "''")}',
-          ${filePath ? `'${filePath}'` : 'NULL'},
-          ARRAY[${tags ? tags.map((t: string) => `'${t}'`).join(',') : ''}]::text[],
+          ${filePath ? `'${filePath.replace(/'/g, "''")}'` : 'NULL'},
+          ${tags && tags.length > 0 ? `ARRAY[${tags.map((t: string) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]` : 'ARRAY[]::text[]'},
           NOW(),
           NOW()
         )
@@ -745,6 +750,9 @@ export class SchoolController {
       const id = uuidv4();
       const file = req.file;
 
+      // Normalisiere Pfad für Datenbank (Forward Slashes)
+      const normalizedPath = file.path.replace(/\\/g, '/');
+
       await prisma.$queryRawUnsafe(`
         INSERT INTO "${schemaName}"."note_files"
         (id, note_id, user_id, folder_id, filename, stored_name, file_path, file_type, file_size, created_at, updated_at)
@@ -755,7 +763,7 @@ export class SchoolController {
           ${folderId ? `'${folderId}'` : 'NULL'},
           '${file.originalname.replace(/'/g, "''")}',
           '${file.filename}',
-          '${file.path.replace(/\\/g, '\\\\')}',
+          '${normalizedPath.replace(/'/g, "''")}',
           '${file.mimetype}',
           ${file.size},
           NOW(),
