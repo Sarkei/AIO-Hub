@@ -44,6 +44,8 @@ services:
       - /app/node_modules
       # Dist-Ordner nicht überschreiben
       - /app/dist
+      # Benutzer-Daten auf Host-System (KRITISCH!)
+      - /volume1/docker/AIO-Hub-Data:/volume1/docker/AIO-Hub-Data
     networks:
       - aiohub_net
 
@@ -65,6 +67,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+      # Benutzer-Daten auf Host-System (für direkten Zugriff)
+      - /volume1/docker/AIO-Hub-Data:/volume1/docker/AIO-Hub-Data
     networks:
       - aiohub_net
 
