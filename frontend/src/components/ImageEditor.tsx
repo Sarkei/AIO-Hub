@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Canvas, FabricImage, Line, Rect, Circle, IText, FabricObject } from 'fabric';
+import axios from 'axios';
 
 interface ImageEditorProps {
   imageUrl: string;
@@ -180,9 +181,41 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
     }
   };
 
-  const handleSave = () => {
-    if (!canvas || !onSave) return;
-    onSave(canvas);
+  const handleSave = async () => {
+    if (!canvas) return;
+
+    try {
+      // 1. Speichere Annotationen
+      const annotations = canvas.toJSON();
+      await axios.put(
+        `/api/school/notes/files/${fileId}/annotations`,
+        { annotations },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
+
+      // 2. Speichere bearbeitetes Bild zurück ins Dateisystem
+      const dataURL = canvas.toDataURL({
+        format: 'png',
+        quality: 1,
+        multiplier: 1,
+      });
+
+      await axios.put(
+        `/api/school/notes/files/${fileId}/content`,
+        { dataUrl: dataURL },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
+
+      // 3. Callback aufrufen
+      if (onSave) {
+        onSave(canvas);
+      }
+
+      alert('Änderungen erfolgreich gespeichert!');
+    } catch (error) {
+      console.error('Fehler beim Speichern:', error);
+      alert('Fehler beim Speichern der Änderungen');
+    }
   };
 
   const handleDownload = () => {
