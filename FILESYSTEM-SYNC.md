@@ -9,14 +9,15 @@ Das System synchronisiert automatisch zwischen dem physischen Dateisystem und de
 ```
 /volume1/docker/AIO-Hub-Data/
 └── {Benutzername}/           # z.B. "Sarkei"
-    └── notes/
-        ├── Ordner1/
-        │   ├── Unterordner1/
-        │   │   └── dokument.pdf
-        │   └── bild.jpg
-        └── Ordner2/
-            └── notiz.docx
+    ├── Ordner1/
+    │   ├── Unterordner1/
+    │   │   └── dokument.pdf
+    │   └── bild.jpg
+    └── Ordner2/
+        └── notiz.docx
 ```
+
+**Wichtig**: Das `notes` Unterverzeichnis gibt es nicht mehr! Alle Ordner und Dateien liegen direkt unter `/volume1/docker/AIO-Hub-Data/{Benutzername}/`
 
 ## Automatische Synchronisation
 
@@ -25,7 +26,7 @@ Das System synchronisiert automatisch zwischen dem physischen Dateisystem und de
 **Wann**: Beim Laden der Ordnerliste (`GET /api/school/notes/folders`)
 
 **Was passiert**:
-- System scannt `/volume1/docker/AIO-Hub-Data/{username}/notes/`
+- System scannt `/volume1/docker/AIO-Hub-Data/{username}/`
 - Findet alle Ordner rekursiv
 - Erstellt DB-Einträge für manuell erstellte Ordner
 - Respektiert Ordner-Hierarchie (parent_id)
@@ -33,7 +34,7 @@ Das System synchronisiert automatisch zwischen dem physischen Dateisystem und de
 **Beispiel**:
 ```bash
 # Auf deinem NAS:
-mkdir -p /volume1/docker/AIO-Hub-Data/Sarkei/notes/Projekte/2025
+mkdir -p /volume1/docker/AIO-Hub-Data/Sarkei/Projekte/2025
 
 # In der Oberfläche:
 # Nach dem Neuladen erscheinen automatisch:
@@ -53,7 +54,7 @@ mkdir -p /volume1/docker/AIO-Hub-Data/Sarkei/notes/Projekte/2025
 **Beispiel**:
 ```bash
 # Auf deinem NAS:
-cp /pfad/zur/datei.pdf /volume1/docker/AIO-Hub-Data/Sarkei/notes/Projekte/
+cp /pfad/zur/datei.pdf /volume1/docker/AIO-Hub-Data/Sarkei/Projekte/
 
 # In der Oberfläche:
 # Nach dem Öffnen des Ordners "Projekte" erscheint "datei.pdf"
@@ -81,10 +82,10 @@ cp /pfad/zur/datei.pdf /volume1/docker/AIO-Hub-Data/Sarkei/notes/Projekte/
 ssh admin@dein-nas.local
 
 # 2. Ordner erstellen
-mkdir -p /volume1/docker/AIO-Hub-Data/Sarkei/notes/Uni/Semester1
+mkdir -p /volume1/docker/AIO-Hub-Data/Sarkei/Uni/Semester1
 
 # 3. PDFs hochladen
-cp ~/Downloads/vorlesung.pdf /volume1/docker/AIO-Hub-Data/Sarkei/notes/Uni/Semester1/
+cp ~/Downloads/vorlesung.pdf /volume1/docker/AIO-Hub-Data/Sarkei/Uni/Semester1/
 
 # 4. In der Oberfläche:
 # - Notizen-Seite öffnen/neu laden
@@ -188,7 +189,7 @@ const handleSave = async () => {
 
 **Unterstützt**:
 ```
-notes/
+{Benutzername}/
   Projekt/
     Dokumentation/     ← 2 Ebenen tief
       Bilder/          ← 3 Ebenen tief
@@ -201,7 +202,7 @@ notes/
 ### Problem: Ordner erscheinen nicht
 
 **Lösung**:
-1. Prüfe Pfad: `/volume1/docker/AIO-Hub-Data/{DEIN_USERNAME}/notes/`
+1. Prüfe Pfad: `/volume1/docker/AIO-Hub-Data/{DEIN_USERNAME}/`
 2. Prüfe Berechtigungen: `chmod -R 755`
 3. Backend-Logs prüfen: `docker logs aiohub_backend`
 4. Seite neu laden (F5)
@@ -282,3 +283,24 @@ ImageEditor:
 6. ✅ Volltext-Suche in PDFs/DOCX
 7. ✅ WebDAV-Integration für externe Zugriffe
 8. ✅ Automatische Backup-Strategie
+
+## Benutzer-Registrierung
+
+Bei der Registrierung wird automatisch ein Benutzerordner erstellt:
+
+```
+/volume1/docker/AIO-Hub-Data/{Benutzername}/
+```
+
+Dieser Ordner wird bei der User-Erstellung im Backend angelegt (siehe `auth.controller.ts`).
+
+**Was passiert bei Registrierung:**
+1. User wird in DB angelegt
+2. Eigenes Schema wird erstellt (`user_{username}_{timestamp}`)
+3. Benutzerordner wird im Dateisystem erstellt
+4. JWT-Token wird ausgestellt
+
+**Beispiel:**
+- User `MaxMuster` registriert sich
+- Ordner `/volume1/docker/AIO-Hub-Data/MaxMuster/` wird erstellt
+- Alle Notizen/Dateien landen in diesem Ordner

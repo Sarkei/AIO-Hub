@@ -18,7 +18,7 @@ export class FilesystemService {
     username: string,
     schemaName: string
   ): Promise<void> {
-    const basePath = path.join('/volume1/docker/AIO-Hub-Data', username, 'notes');
+    const basePath = path.join('/volume1/docker/AIO-Hub-Data', username);
     
     if (!fs.existsSync(basePath)) {
       fs.mkdirSync(basePath, { recursive: true });
@@ -110,7 +110,7 @@ export class FilesystemService {
     schemaName: string,
     folderId?: string
   ): Promise<void> {
-    const basePath = path.join('/volume1/docker/AIO-Hub-Data', username, 'notes');
+    const basePath = path.join('/volume1/docker/AIO-Hub-Data', username);
     
     if (!fs.existsSync(basePath)) {
       return;

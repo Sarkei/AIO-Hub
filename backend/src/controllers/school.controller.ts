@@ -468,7 +468,7 @@ export class SchoolController {
       }
 
       // Physischen Ordner erstellen
-      const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, 'notes', folderPath);
+      const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, folderPath);
       try {
         if (!fs.existsSync(physicalPath)) {
           fs.mkdirSync(physicalPath, { recursive: true });

@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
       const folderId = req.body.folderId || '';
       
       // Base path für User
-      const basePath = `/volume1/docker/AIO-Hub-Data/${username}/notes`;
+      const basePath = `/volume1/docker/AIO-Hub-Data/${username}`;
       
       // Wenn folderId vorhanden, Ordnerpfad ermitteln (später aus DB)
       // Für jetzt: flache Struktur
