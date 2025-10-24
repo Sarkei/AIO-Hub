@@ -31,7 +31,7 @@ export class FilesystemService {
       WHERE user_id = '${userId}'
     `);
 
-    const dbFolderPaths = new Set(dbFolders.map((f: any) => f.path));
+    const dbFolderPaths = new Set<string>(dbFolders.map((f: any) => f.path as string));
 
     // Scanne Dateisystem rekursiv
     await this.scanDirectory(basePath, '', userId, schemaName, dbFolderPaths);
