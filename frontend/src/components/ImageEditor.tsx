@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { fabric } from 'fabric';
+import { Canvas, FabricImage, Line, Rect, Circle, IText, FabricObject } from 'fabric';
 
 interface ImageEditorProps {
   imageUrl: string;
   fileId: string;
   onClose: () => void;
-  onSave?: (canvas: fabric.Canvas) => void;
+  onSave?: (canvas: Canvas) => void;
 }
 
 type DrawingMode = 'select' | 'pen' | 'line' | 'rectangle' | 'circle' | 'text';
 
 export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: ImageEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
+  const [canvas, setCanvas] = useState<Canvas | null>(null);
   const [mode, setMode] = useState<DrawingMode>('select');
   const [color, setColor] = useState('#FF0000');
   const [strokeWidth, setStrokeWidth] = useState(3);
@@ -23,14 +23,14 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
     if (!canvasRef.current) return;
 
     // Canvas initialisieren
-    const fabricCanvas = new fabric.Canvas(canvasRef.current, {
+    const fabricCanvas = new Canvas(canvasRef.current, {
       width: 800,
       height: 600,
       backgroundColor: '#ffffff',
     });
 
     // Bild laden
-    fabric.Image.fromURL(imageUrl, (img) => {
+    FabricImage.fromURL(imageUrl).then((img) => {
       // Bild skalieren um in Canvas zu passen
       const scale = Math.min(
         fabricCanvas.width! / img.width!,
@@ -61,7 +61,7 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
     // Drawing Mode umschalten
     canvas.isDrawingMode = mode === 'pen';
 
-    if (canvas.isDrawingMode) {
+    if (canvas.isDrawingMode && canvas.freeDrawingBrush) {
       canvas.freeDrawingBrush.color = color;
       canvas.freeDrawingBrush.width = strokeWidth;
     }
@@ -71,21 +71,21 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
       let isDown = false;
       let startX = 0;
       let startY = 0;
-      let activeShape: fabric.Object | null = null;
+      let activeShape: FabricObject | null = null;
 
-      const onMouseDown = (o: fabric.IEvent) => {
+      const onMouseDown = (o: any) => {
         isDown = true;
         const pointer = canvas.getPointer(o.e);
         startX = pointer.x;
         startY = pointer.y;
 
         if (mode === 'line') {
-          activeShape = new fabric.Line([startX, startY, startX, startY], {
+          activeShape = new Line([startX, startY, startX, startY], {
             stroke: color,
             strokeWidth: strokeWidth,
           });
         } else if (mode === 'rectangle') {
-          activeShape = new fabric.Rect({
+          activeShape = new Rect({
             left: startX,
             top: startY,
             width: 0,
@@ -95,7 +95,7 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
             fill: 'transparent',
           });
         } else if (mode === 'circle') {
-          activeShape = new fabric.Circle({
+          activeShape = new Circle({
             left: startX,
             top: startY,
             radius: 0,
@@ -104,7 +104,7 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
             fill: 'transparent',
           });
         } else if (mode === 'text') {
-          const text = new fabric.IText('Text eingeben', {
+          const text = new IText('Text eingeben', {
             left: startX,
             top: startY,
             fill: color,
@@ -120,19 +120,19 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
         }
       };
 
-      const onMouseMove = (o: fabric.IEvent) => {
+      const onMouseMove = (o: any) => {
         if (!isDown || !activeShape) return;
         
         const pointer = canvas.getPointer(o.e);
 
-        if (mode === 'line' && activeShape instanceof fabric.Line) {
+        if (mode === 'line' && activeShape instanceof Line) {
           activeShape.set({ x2: pointer.x, y2: pointer.y });
-        } else if (mode === 'rectangle' && activeShape instanceof fabric.Rect) {
+        } else if (mode === 'rectangle' && activeShape instanceof Rect) {
           activeShape.set({
             width: Math.abs(pointer.x - startX),
             height: Math.abs(pointer.y - startY),
           });
-        } else if (mode === 'circle' && activeShape instanceof fabric.Circle) {
+        } else if (mode === 'circle' && activeShape instanceof Circle) {
           const radius = Math.sqrt(
             Math.pow(pointer.x - startX, 2) + Math.pow(pointer.y - startY, 2)
           );
@@ -162,8 +162,8 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
   const handleClear = () => {
     if (!canvas) return;
     const objects = canvas.getObjects();
-    objects.forEach(obj => {
-      if (!obj.isType('image')) {
+    objects.forEach((obj: FabricObject) => {
+      if (!(obj instanceof FabricImage)) {
         canvas.remove(obj);
       }
     });
