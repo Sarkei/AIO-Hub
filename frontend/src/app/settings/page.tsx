@@ -47,6 +47,8 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState('account')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   useEffect(() => {
     if (!loading && !user) {
@@ -78,6 +80,34 @@ export default function SettingsPage() {
       setError(err?.response?.data?.message || 'Speichern fehlgeschlagen')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== user?.username) {
+      setError('Benutzername stimmt nicht überein')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/auth/me', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Fehler beim Löschen des Accounts')
+      }
+
+      // Logout und Redirect
+      localStorage.removeItem('token')
+      alert('Dein Account wurde gelöscht. Deine Dateien bleiben zur Sicherheit erhalten.')
+      router.push('/login')
+    } catch (err: any) {
+      setError(err.message || 'Account konnte nicht gelöscht werden')
     }
   }
 
@@ -182,6 +212,83 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </form>
+
+                {/* Gefahrenzone - Account löschen */}
+                <div className="mt-8 pt-8 border-t" style={{ borderColor: 'rgb(var(--card-border))' }}>
+                  <h3 className="text-lg font-semibold mb-4 text-[rgb(var(--danger))]">⚠️ Gefahrenzone</h3>
+                  <p className="text-sm text-[rgb(var(--fg-muted))] mb-4">
+                    Das Löschen deines Accounts ist <strong>permanent und unumkehrbar</strong>. 
+                    Alle Datenbank-Einträge werden gelöscht, aber deine Dateien bleiben zur Sicherheit erhalten.
+                  </p>
+
+                  {!showDeleteConfirm ? (
+                    <Button 
+                      variant="danger" 
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      🗑️ Account löschen
+                    </Button>
+                  ) : (
+                    <div className="p-4 rounded-lg border-2 space-y-4" style={{ 
+                      borderColor: 'rgb(var(--danger))',
+                      backgroundColor: 'rgba(var(--danger), 0.05)'
+                    }}>
+                      <p className="text-sm font-medium">
+                        ⚠️ Bist du sicher? Diese Aktion kann nicht rückgängig gemacht werden!
+                      </p>
+                      <p className="text-sm text-[rgb(var(--fg-muted))]">
+                        <strong>Was wird gelöscht:</strong>
+                      </p>
+                      <ul className="text-sm text-[rgb(var(--fg-muted))] list-disc list-inside space-y-1">
+                        <li>Dein Account und alle Login-Daten</li>
+                        <li>Alle Datenbank-Einträge (Notizen, Todos, Events, etc.)</li>
+                        <li>Dein persönliches Datenbank-Schema</li>
+                      </ul>
+                      <p className="text-sm text-[rgb(var(--fg-muted))]">
+                        <strong>Was bleibt erhalten:</strong>
+                      </p>
+                      <ul className="text-sm text-[rgb(var(--fg-muted))] list-disc list-inside space-y-1">
+                        <li>Deine hochgeladenen Dateien (PDFs, Bilder, etc.)</li>
+                        <li>Deine Ordnerstruktur unter <code>/volume1/docker/AIO-Hub-Data/{user?.username}/</code></li>
+                      </ul>
+
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium mb-2">
+                          Gib <strong>{user?.username}</strong> ein, um zu bestätigen:
+                        </label>
+                        <Input
+                          type="text"
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          placeholder={user?.username}
+                          className="font-mono"
+                        />
+                      </div>
+
+                      {error && <div className="text-sm" style={{ color: 'rgb(var(--danger))' }}>{error}</div>}
+
+                      <div className="flex gap-3">
+                        <Button
+                          variant="danger"
+                          onClick={handleDeleteAccount}
+                          disabled={deleteConfirmText !== user?.username}
+                        >
+                          ✅ Ja, Account permanent löschen
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setShowDeleteConfirm(false)
+                            setDeleteConfirmText('')
+                            setError(null)
+                          }}
+                        >
+                          Abbrechen
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </Card>
             )}
 

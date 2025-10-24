@@ -27,7 +27,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import axios from 'axios'
 
@@ -89,6 +89,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+  const navRef = useRef<HTMLDivElement>(null)
 
   // Load collapsed categories from backend on mount
   useEffect(() => {
@@ -115,6 +116,29 @@ export default function Sidebar() {
       fetchPreferences()
     }
   }, [user])
+
+  // Restore scroll position on mount and save on scroll
+  useEffect(() => {
+    const navElement = navRef.current
+    if (!navElement) return
+
+    // Restore scroll position from sessionStorage
+    const savedScrollPos = sessionStorage.getItem('sidebar-scroll-position')
+    if (savedScrollPos) {
+      navElement.scrollTop = parseInt(savedScrollPos, 10)
+    }
+
+    // Save scroll position whenever user scrolls
+    const handleScroll = () => {
+      sessionStorage.setItem('sidebar-scroll-position', navElement.scrollTop.toString())
+    }
+
+    navElement.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      navElement.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
 
   // Save collapsed categories to backend when they change
   const toggleCategory = async (categoryId: string) => {
@@ -218,7 +242,7 @@ export default function Sidebar() {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2">
+      <nav ref={navRef} className="flex-1 overflow-y-auto px-3 py-2">
         {navCategories.map((category) => (
           <div key={category.id} className="mb-2">
             {/* Category Header */}

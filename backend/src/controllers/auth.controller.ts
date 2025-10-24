@@ -346,4 +346,49 @@ export class AuthController {
       });
     }
   }
+
+  /**
+   * Account löschen
+   * Löscht User aus DB und user-spezifisches Schema
+   * Benutzer-Ordner bleibt zur Sicherheit erhalten
+   */
+  async deleteAccount(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const username = req.user!.username;
+      const schemaName = req.user!.schemaName;
+
+      console.log('🗑️ Deleting account:', { userId, username, schemaName });
+
+      // 1. User-Schema löschen (alle User-Daten)
+      try {
+        await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+        console.log('✅ User schema deleted:', schemaName);
+      } catch (schemaError) {
+        console.error('⚠️ Failed to delete schema:', schemaError);
+        // Weiter machen, auch wenn Schema-Löschung fehlschlägt
+      }
+
+      // 2. User aus public.users löschen
+      await prisma.user.delete({
+        where: { id: userId }
+      });
+      console.log('✅ User deleted from database:', username);
+
+      // 3. NOTIZ: Benutzer-Ordner wird NICHT gelöscht
+      // Pfad: /volume1/docker/AIO-Hub-Data/{username}/
+      console.log('ℹ️ User folder preserved:', `/volume1/docker/AIO-Hub-Data/${username}/`);
+
+      res.status(200).json({
+        message: 'Account successfully deleted',
+        note: 'Your files have been preserved and can be accessed manually'
+      });
+    } catch (error) {
+      console.error('Delete account error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to delete account'
+      });
+    }
+  }
 }

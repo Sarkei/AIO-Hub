@@ -79,5 +79,6 @@ router.post('/register', registerValidation, authController.register);
 router.post('/login', loginValidation, authController.login);
 router.get('/me', authenticate, authController.getCurrentUser);
 router.patch('/me', authenticate, updateValidation, authController.updateProfile);
+router.delete('/me', authenticate, authController.deleteAccount.bind(authController));
 
 export default router;
