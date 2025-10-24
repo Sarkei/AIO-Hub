@@ -89,13 +89,13 @@ export default function NotesPage() {
       }
 
       const [foldersRes, notesRes, filesRes] = await Promise.all([
-        axios.get('http://localhost:4000/api/school/notes/folders', {
+        axios.get('/api/school/notes/folders', {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`http://localhost:4000/api/school/notes${selectedFolder ? `?folderId=${selectedFolder}` : ''}`, {
+        axios.get(`/api/school/notes${selectedFolder ? `?folderId=${selectedFolder}` : ''}`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        axios.get(`http://localhost:4000/api/school/notes/files${selectedFolder ? `?folderId=${selectedFolder}` : ''}`, {
+        axios.get(`/api/school/notes/files${selectedFolder ? `?folderId=${selectedFolder}` : ''}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
@@ -110,7 +110,7 @@ export default function NotesPage() {
         name: f.filename,
         type: f.file_type.startsWith('image/') ? 'image' : 'pdf',
         path: f.file_path,
-        url: `http://localhost:4000/api/school/notes/files/${f.id}`
+        url: `/api/school/notes/files/${f.id}`
       }));
       setFiles(formattedFiles);
       
@@ -126,7 +126,7 @@ export default function NotesPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        'http://localhost:4000/api/school/notes/folders',
+        '/api/school/notes/folders',
         {
           name: folderForm.name,
           parentId: selectedFolder
@@ -155,13 +155,13 @@ export default function NotesPage() {
 
       if (editingNote && selectedNote) {
         await axios.put(
-          `http://localhost:4000/api/school/notes/${selectedNote.id}`,
+          `/api/school/notes/${selectedNote.id}`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
         await axios.post(
-          'http://localhost:4000/api/school/notes',
+          '/api/school/notes',
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -191,7 +191,7 @@ export default function NotesPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        'http://localhost:4000/api/school/notes/upload',
+        '/api/school/notes/upload',
         formData,
         {
           headers: {
@@ -228,7 +228,7 @@ export default function NotesPage() {
   const openFile = async (fileId: string, fileType: 'pdf' | 'image') => {
     try {
       const token = localStorage.getItem('token');
-      const url = `http://localhost:4000/api/school/notes/files/${fileId}?token=${token}`;
+      const url = `/api/school/notes/files/${fileId}?token=${token}`;
       setViewerFile({ id: fileId, url, type: fileType });
       setView('file-viewer');
     } catch (error) {
@@ -243,7 +243,7 @@ export default function NotesPage() {
       if (!viewerFile) return;
 
       await axios.put(
-        `http://localhost:4000/api/school/notes/files/${viewerFile.id}/annotations`,
+        `/api/school/notes/files/${viewerFile.id}/annotations`,
         { annotations },
         { headers: { Authorization: `Bearer ${token}` } }
       );
