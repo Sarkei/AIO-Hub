@@ -45,7 +45,8 @@ export default function ImageEditor({ imageUrl, fileId, onClose, onSave }: Image
         evented: false,
       });
 
-      fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas));
+      fabricCanvas.backgroundImage = img;
+      fabricCanvas.renderAll();
     });
 
     setCanvas(fabricCanvas);
