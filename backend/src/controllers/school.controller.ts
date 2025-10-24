@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { FilesystemService } from '../services/filesystem.service';
 
 export class SchoolController {
   // ============================================
@@ -411,7 +412,11 @@ export class SchoolController {
   async getNoteFolders(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
+      const username = req.user!.username;
       const schemaName = req.user!.schemaName;
+
+      // Synchronisiere Ordner vom Dateisystem
+      await FilesystemService.syncFoldersFromFilesystem(userId, username, schemaName);
 
       const folders: any = await prisma.$queryRawUnsafe(`
         SELECT * FROM "${schemaName}"."note_folders"
@@ -782,8 +787,17 @@ export class SchoolController {
   async getFiles(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
+      const username = req.user!.username;
       const schemaName = req.user!.schemaName;
       const { folderId, noteId } = req.query;
+
+      // Synchronisiere Dateien vom Dateisystem
+      await FilesystemService.syncFilesFromFilesystem(
+        userId,
+        username,
+        schemaName,
+        folderId as string | undefined
+      );
 
       let query = `
         SELECT * FROM "${schemaName}"."note_files"
@@ -1040,6 +1054,74 @@ export class SchoolController {
       res.status(500).json({
         error: 'Internal Server Error',
         message: 'Failed to delete note'
+      });
+    }
+  }
+
+  /**
+   * Datei-Inhalt aktualisieren (z.B. bearbeitetes Bild)
+   */
+  async updateFileContent(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const schemaName = req.user!.schemaName;
+      const { id } = req.params;
+      const { dataUrl } = req.body; // Base64 Data URL
+
+      if (!dataUrl) {
+        res.status(400).json({
+          error: 'Validation Error',
+          message: 'dataUrl is required'
+        });
+        return;
+      }
+
+      const fileRecord: any = await prisma.$queryRawUnsafe(`
+        SELECT * FROM "${schemaName}"."note_files"
+        WHERE id = '${id}' AND user_id = '${userId}'
+      `);
+
+      if (!fileRecord || fileRecord.length === 0) {
+        res.status(404).json({
+          error: 'Not Found',
+          message: 'File not found'
+        });
+        return;
+      }
+
+      const file = fileRecord[0];
+
+      // Extrahiere Base64-Daten
+      const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        res.status(400).json({
+          error: 'Validation Error',
+          message: 'Invalid data URL format'
+        });
+        return;
+      }
+
+      const buffer = Buffer.from(matches[2], 'base64');
+
+      // Schreibe Datei zurück ins Dateisystem
+      fs.writeFileSync(file.file_path, buffer);
+
+      // Aktualisiere Dateigröße in DB
+      await prisma.$queryRawUnsafe(`
+        UPDATE "${schemaName}"."note_files"
+        SET file_size = ${buffer.length},
+            updated_at = NOW()
+        WHERE id = '${id}'
+      `);
+
+      res.status(200).json({
+        message: 'File content updated successfully'
+      });
+    } catch (error) {
+      console.error('Update file content error:', error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to update file content'
       });
     }
   }

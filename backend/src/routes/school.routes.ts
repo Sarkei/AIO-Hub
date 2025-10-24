@@ -34,6 +34,7 @@ router.post('/notes/upload', authenticate, upload.single('file'), controller.upl
 router.get('/notes/files', authenticate, controller.getFiles.bind(controller));
 router.get('/notes/files/:id', authenticate, controller.getFile.bind(controller));
 router.put('/notes/files/:id/annotations', authenticate, controller.saveFileAnnotations.bind(controller));
+router.put('/notes/files/:id/content', authenticate, controller.updateFileContent.bind(controller));
 router.delete('/notes/files/:id', authenticate, controller.deleteFile.bind(controller));
 
 // Grades
