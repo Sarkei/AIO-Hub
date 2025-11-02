@@ -1,84 +1,70 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import dynamic from 'next/dynamic';
 import AppLayout from '@/components/AppLayout';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Label from '@/components/ui/Label';
+import Textarea from '@/components/ui/Textarea';
 
-// Dynamic imports für client-side only components
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-const PDFViewer = dynamic(() => import('@/components/PDFViewer'), { ssr: false });
-const ImageEditor = dynamic(() => import('@/components/ImageEditor'), { ssr: false });
-
-// React Quill CSS - wird nur client-side geladen
-if (typeof window !== 'undefined') {
-  require('react-quill/dist/quill.snow.css');
-}
-
-interface Folder {
+interface NoteFolder {
   id: string;
   name: string;
   path: string;
-  parent_id: string | null;
+  parentId: string | null;
+  createdAt: string;
 }
 
 interface Note {
   id: string;
-  folder_id: string | null;
   title: string;
   content: string;
-  file_path: string | null;
+  folderId: string | null;
   tags: string[];
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface FileItem {
+interface NoteFile {
   id: string;
-  folder_id: string;
-  name: string;
-  type: 'pdf' | 'image';
-  path: string;
-  url: string;
+  noteId: string | null;
+  filename: string;
+  fileType: string;
+  fileSize: number;
+  createdAt: string;
 }
 
-export default function NotesPage() {
+export default function SchoolNotesPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [files, setFiles] = useState<NoteFile[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Modals
-  const [showFolderModal, setShowFolderModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
-  const [editingNote, setEditingNote] = useState(false);
-  
-  // Forms
-  const [folderForm, setFolderForm] = useState({ name: '' });
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [showCreateNoteModal, setShowCreateNoteModal] = useState(false);
+  const [view, setView] = useState<'folders' | 'notes' | 'files'>('folders');
+
+  const [folderForm, setFolderForm] = useState({
+    name: '',
+    parentId: ''
+  });
+
   const [noteForm, setNoteForm] = useState({
     title: '',
     content: '',
+    folderId: '',
     tags: ''
   });
-
-  const [view, setView] = useState<'grid' | 'editor' | 'file-viewer'>('grid');
-  const [viewerFile, setViewerFile] = useState<{ id: string; url: string; type: 'pdf' | 'image' } | null>(null);
 
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder]);
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -88,35 +74,13 @@ export default function NotesPage() {
         return;
       }
 
-      const [foldersRes, notesRes, filesRes] = await Promise.all([
-        axios.get('/api/school/notes/folders', {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`/api/school/notes${selectedFolder ? `?folderId=${selectedFolder}` : ''}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`/api/school/notes/files${selectedFolder ? `?folderId=${selectedFolder}` : ''}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
-
-      setFolders(foldersRes.data.folders);
-      setNotes(notesRes.data.notes);
-      
-      // Files formatieren
-      const formattedFiles: FileItem[] = filesRes.data.files.map((f: any) => ({
-        id: f.id,
-        folder_id: f.folder_id,
-        name: f.filename,
-        type: f.file_type.startsWith('image/') ? 'image' : 'pdf',
-        path: f.file_path,
-        url: `/api/school/notes/files/${f.id}`
-      }));
-      setFiles(formattedFiles);
-      
+      // Temporär: Bis die Backend-Endpoints implementiert sind, zeigen wir eine leere Ansicht
+      setFolders([]);
+      setNotes([]);
+      setFiles([]);
       setLoading(false);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching data:', error);
       setLoading(false);
     }
   };
@@ -126,15 +90,12 @@ export default function NotesPage() {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        '/api/school/notes/folders',
-        {
-          name: folderForm.name,
-          parentId: selectedFolder
-        },
+        'http://localhost:4000/api/school/notes/folders',
+        folderForm,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setShowFolderModal(false);
-      setFolderForm({ name: '' });
+      setShowCreateFolderModal(false);
+      setFolderForm({ name: '', parentId: '' });
       fetchData();
     } catch (error) {
       console.error('Error creating folder:', error);
@@ -142,56 +103,42 @@ export default function NotesPage() {
     }
   };
 
-  const handleSaveNote = async (e: React.FormEvent) => {
+  const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const payload = {
-        folderId: selectedFolder,
-        title: noteForm.title,
-        content: noteForm.content,
-        tags: noteForm.tags.split(',').map(t => t.trim()).filter(Boolean)
-      };
-
-      if (editingNote && selectedNote) {
-        await axios.put(
-          `/api/school/notes/${selectedNote.id}`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } else {
-        await axios.post(
-          '/api/school/notes',
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-
-      setShowNoteModal(false);
-      setEditingNote(false);
-      setNoteForm({ title: '', content: '', tags: '' });
-      setSelectedNote(null);
+      const tagsArray = noteForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      await axios.post(
+        'http://localhost:4000/api/school/notes',
+        {
+          ...noteForm,
+          tags: tagsArray
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setShowCreateNoteModal(false);
+      setNoteForm({ title: '', content: '', folderId: '', tags: '' });
       fetchData();
     } catch (error) {
-      console.error('Error saving note:', error);
-      alert('Fehler beim Speichern der Notiz');
+      console.error('Error creating note:', error);
+      alert('Fehler beim Erstellen der Notiz');
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('file', file);
-    if (selectedFolder) {
-      formData.append('folderId', selectedFolder);
+    if (selectedFolderId) {
+      formData.append('folderId', selectedFolderId);
     }
 
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        '/api/school/notes/upload',
+        'http://localhost:4000/api/school/notes/files/upload',
         formData,
         {
           headers: {
@@ -207,54 +154,6 @@ export default function NotesPage() {
     }
   };
 
-  const openNote = (note: Note) => {
-    setSelectedNote(note);
-    setNoteForm({
-      title: note.title,
-      content: note.content,
-      tags: note.tags.join(', ')
-    });
-    setEditingNote(true);
-    setView('editor');
-  };
-
-  const openNewNote = () => {
-    setSelectedNote(null);
-    setNoteForm({ title: '', content: '', tags: '' });
-    setEditingNote(false);
-    setView('editor');
-  };
-
-  const openFile = async (fileId: string, fileType: 'pdf' | 'image') => {
-    try {
-      const token = localStorage.getItem('token');
-      const url = `/api/school/notes/files/${fileId}?token=${token}`;
-      setViewerFile({ id: fileId, url, type: fileType });
-      setView('file-viewer');
-    } catch (error) {
-      console.error('Error opening file:', error);
-      alert('Fehler beim Öffnen der Datei');
-    }
-  };
-
-  const handleSaveAnnotations = async (annotations: any) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!viewerFile) return;
-
-      await axios.put(
-        `/api/school/notes/files/${viewerFile.id}/annotations`,
-        { annotations },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      alert('Annotationen gespeichert!');
-    } catch (error) {
-      console.error('Error saving annotations:', error);
-      alert('Fehler beim Speichern der Annotationen');
-    }
-  };
-
   if (loading) {
     return (
       <AppLayout>
@@ -267,249 +166,265 @@ export default function NotesPage() {
     );
   }
 
-  // Editor View
-  if (view === 'editor') {
-    return (
-      <AppLayout>
-        <div className="h-full flex flex-col p-6">
-          <div className="flex items-center justify-between mb-4">
-            <Button onClick={() => setView('grid')}>← Zurück</Button>
-            <Button onClick={(e) => { e.preventDefault(); handleSaveNote(e); }}>
-              💾 Speichern
-            </Button>
-          </div>
-          <div className="flex-1 flex flex-col gap-4">
-            <Input
-              value={noteForm.title}
-              onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
-              placeholder="Notiz-Titel..."
-              className="text-2xl font-bold"
-            />
-            <div className="flex-1" style={{ minHeight: '500px' }}>
-              <ReactQuill
-                theme="snow"
-                value={noteForm.content}
-                onChange={(content) => setNoteForm({ ...noteForm, content })}
-                style={{ height: '100%' }}
-                modules={{
-                  toolbar: [
-                    [{ header: [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ list: 'ordered' }, { list: 'bullet' }],
-                    [{ color: [] }, { background: [] }],
-                    ['link', 'image'],
-                    ['clean']
-                  ]
-                }}
-              />
-            </div>
-            <Input
-              value={noteForm.tags}
-              onChange={(e) => setNoteForm({ ...noteForm, tags: e.target.value })}
-              placeholder="Tags (komma-getrennt)..."
-            />
-          </div>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  // Grid View
   return (
     <AppLayout>
-      {/* PDF Viewer */}
-      {view === 'file-viewer' && viewerFile && viewerFile.type === 'pdf' && (
-        <PDFViewer
-          fileUrl={viewerFile.url}
-          fileId={viewerFile.id}
-          onClose={() => {
-            setView('grid');
-            setViewerFile(null);
-          }}
-          onSaveAnnotations={handleSaveAnnotations}
-        />
-      )}
-
-      {/* Image Editor */}
-      {view === 'file-viewer' && viewerFile && viewerFile.type === 'image' && (
-        <ImageEditor
-          imageUrl={viewerFile.url}
-          fileId={viewerFile.id}
-          onClose={() => {
-            setView('grid');
-            setViewerFile(null);
-          }}
-          onSave={async (canvas) => {
-            const annotations = canvas.toJSON();
-            await handleSaveAnnotations(annotations);
-          }}
-        />
-      )}
-
       <div className="p-8 max-w-7xl mx-auto">
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2" style={{ color: 'rgb(var(--fg))' }}>
             📝 Notizen
           </h1>
           <p style={{ color: 'rgb(var(--fg-muted))' }}>
-            Lernmaterialien, Mitschriften und Dateien
+            Lernmaterialien, Mitschriften und Dokumente
           </p>
         </div>
 
-        <div className="flex gap-4 mb-6">
-          <Button onClick={() => setShowFolderModal(true)}>
-            📁 Neuer Ordner
+        {/* View Switcher */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            onClick={() => setView('folders')}
+            style={{
+              backgroundColor: view === 'folders' ? 'rgb(var(--accent))' : 'rgb(var(--bg-elevated))',
+              color: view === 'folders' ? 'white' : 'rgb(var(--fg))'
+            }}
+          >
+            📁 Ordner
           </Button>
-          <Button onClick={openNewNote}>
-            📝 Neue Notiz
+          <Button
+            onClick={() => setView('notes')}
+            style={{
+              backgroundColor: view === 'notes' ? 'rgb(var(--accent))' : 'rgb(var(--bg-elevated))',
+              color: view === 'notes' ? 'white' : 'rgb(var(--fg))'
+            }}
+          >
+            📝 Notizen
           </Button>
-          <Button onClick={() => fileInputRef.current?.click()}>
-            📤 Datei hochladen
+          <Button
+            onClick={() => setView('files')}
+            style={{
+              backgroundColor: view === 'files' ? 'rgb(var(--accent))' : 'rgb(var(--bg-elevated))',
+              color: view === 'files' ? 'white' : 'rgb(var(--fg))'
+            }}
+          >
+            📎 Dateien
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
         </div>
 
-        <div className="grid grid-cols-4 gap-6">
-          {/* Folder Sidebar */}
-          <div>
-            <Card>
-              <CardHeader>
-                <h3 className="font-bold" style={{ color: 'rgb(var(--fg))' }}>Ordner</h3>
-              </CardHeader>
-              <CardContent>
-                <button
-                  onClick={() => setSelectedFolder(null)}
-                  className="w-full text-left p-2 rounded mb-2 transition-colors"
-                  style={{
-                    backgroundColor: selectedFolder === null ? 'rgba(var(--accent), 0.1)' : 'transparent',
-                    color: selectedFolder === null ? 'rgb(var(--accent))' : 'rgb(var(--fg))'
-                  }}
-                >
-                  📂 Alle Notizen
-                </button>
-                {folders.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-                      Keine Ordner
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {folders.map((folder) => (
-                      <button
-                        key={folder.id}
-                        onClick={() => setSelectedFolder(folder.id)}
-                        className="w-full text-left p-2 rounded transition-colors"
-                        style={{
-                          backgroundColor: selectedFolder === folder.id ? 'rgba(var(--accent), 0.1)' : 'transparent',
-                          color: selectedFolder === folder.id ? 'rgb(var(--accent))' : 'rgb(var(--fg))'
-                        }}
-                      >
-                        📁 {folder.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Notes & Files Grid */}
-          <div className="col-span-3">
-            {notes.length === 0 && files.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-16">
-                  <div className="text-6xl mb-4">📚</div>
+        {/* Folders View */}
+        {view === 'folders' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
+                Ordner
+              </h3>
+              <Button onClick={() => setShowCreateFolderModal(true)}>
+                + Neuer Ordner
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {folders.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">📁</div>
                   <p className="text-lg mb-2" style={{ color: 'rgb(var(--fg))' }}>
-                    Noch keine Notizen oder Dateien
+                    Noch keine Ordner
                   </p>
                   <p style={{ color: 'rgb(var(--fg-muted))' }}>
-                    Erstelle deine erste Notiz oder lade Dateien hoch
+                    Erstelle Ordner, um deine Notizen zu organisieren
                   </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {/* Files */}
-                {files.map((file) => (
-                  <Card
-                    key={file.id}
-                    className="cursor-pointer transition-all hover:scale-105"
-                    onClick={() => openFile(file.id, file.type)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-bold truncate" style={{ color: 'rgb(var(--fg))' }}>
-                          {file.name}
-                        </h3>
-                        <span className="text-xl">
-                          {file.type === 'pdf' ? '📕' : '🖼️'}
-                        </span>
-                      </div>
-                      <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-                        {file.type === 'pdf' ? 'PDF-Datei' : 'Bild'}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {folders.map((folder) => (
+                    <Card
+                      key={folder.id}
+                      className="cursor-pointer transition-all hover:scale-105"
+                      onClick={() => {
+                        setSelectedFolderId(folder.id);
+                        setView('notes');
+                      }}
+                      style={{
+                        backgroundColor: 'rgb(var(--bg-elevated))',
+                        border: '1px solid rgb(var(--card-border))'
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="text-4xl mb-2">📁</div>
+                        <h4 className="font-bold" style={{ color: 'rgb(var(--fg))' }}>
+                          {folder.name}
+                        </h4>
+                        <p className="text-xs mt-1" style={{ color: 'rgb(var(--fg-muted))' }}>
+                          {folder.path}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                {/* Notes */}
-                {notes.map((note) => (
-                  <Card
-                    key={note.id}
-                    className="cursor-pointer transition-all hover:scale-105"
-                    onClick={() => openNote(note)}
+        {/* Notes View */}
+        {view === 'notes' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
+                  Notizen
+                </h3>
+                {selectedFolderId && (
+                  <button
+                    onClick={() => setSelectedFolderId(null)}
+                    className="text-sm mt-1"
+                    style={{ color: 'rgb(var(--accent))' }}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                          {note.title}
-                        </h3>
-                        <span className="text-xl">📄</span>
-                      </div>
-                      <div
-                        className="text-sm line-clamp-3 mb-2"
-                        style={{ color: 'rgb(var(--fg-muted))' }}
-                        dangerouslySetInnerHTML={{ __html: note.content }}
-                      />
-                      {note.tags && note.tags.length > 0 && (
-                        <div className="flex gap-1 flex-wrap">
-                          {note.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-xs px-2 py-1 rounded"
-                              style={{
-                                backgroundColor: 'rgba(var(--accent), 0.1)',
-                                color: 'rgb(var(--accent))'
-                              }}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                    ← Alle Notizen anzeigen
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+              <Button onClick={() => setShowCreateNoteModal(true)}>
+                + Neue Notiz
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {notes.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">📝</div>
+                  <p className="text-lg mb-2" style={{ color: 'rgb(var(--fg))' }}>
+                    Noch keine Notizen
+                  </p>
+                  <p style={{ color: 'rgb(var(--fg-muted))' }}>
+                    Erstelle deine erste Notiz
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notes.map((note) => (
+                    <Card
+                      key={note.id}
+                      className="cursor-pointer transition-all hover:shadow-lg"
+                      onClick={() => setSelectedNote(note)}
+                      style={{
+                        backgroundColor: 'rgb(var(--bg-elevated))',
+                        border: '1px solid rgb(var(--card-border))'
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <h4 className="font-bold mb-2" style={{ color: 'rgb(var(--fg))' }}>
+                          {note.title}
+                        </h4>
+                        <p
+                          className="text-sm mb-2 line-clamp-2"
+                          style={{ color: 'rgb(var(--fg-muted))' }}
+                        >
+                          {note.content}
+                        </p>
+                        {note.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {note.tags.map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs px-2 py-1 rounded"
+                                style={{
+                                  backgroundColor: 'rgba(var(--accent), 0.1)',
+                                  color: 'rgb(var(--accent))'
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div
+                          className="text-xs mt-2"
+                          style={{ color: 'rgb(var(--fg-muted))' }}
+                        >
+                          Aktualisiert: {new Date(note.updatedAt).toLocaleDateString('de-DE')}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Folder Modal */}
-        {showFolderModal && (
+        {/* Files View */}
+        {view === 'files' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
+                Dateien
+              </h3>
+              <div>
+                <input
+                  type="file"
+                  id="fileUpload"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+                <Button onClick={() => document.getElementById('fileUpload')?.click()}>
+                  + Datei hochladen
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {files.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">📎</div>
+                  <p className="text-lg mb-2" style={{ color: 'rgb(var(--fg))' }}>
+                    Noch keine Dateien
+                  </p>
+                  <p style={{ color: 'rgb(var(--fg-muted))' }}>
+                    Lade PDFs, Bilder und andere Dokumente hoch
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {files.map((file) => (
+                    <Card
+                      key={file.id}
+                      className="cursor-pointer transition-all hover:scale-105"
+                      style={{
+                        backgroundColor: 'rgb(var(--bg-elevated))',
+                        border: '1px solid rgb(var(--card-border))'
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="text-4xl mb-2">
+                          {file.fileType.includes('pdf') ? '📄' : 
+                           file.fileType.includes('image') ? '🖼️' : '📎'}
+                        </div>
+                        <h4 className="font-bold mb-1" style={{ color: 'rgb(var(--fg))' }}>
+                          {file.filename}
+                        </h4>
+                        <p className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+                          {(file.fileSize / 1024).toFixed(2)} KB
+                        </p>
+                        <p className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
+                          {new Date(file.createdAt).toLocaleDateString('de-DE')}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Create Folder Modal */}
+        {showCreateFolderModal && (
           <div
             className="fixed inset-0 flex items-center justify-center z-50"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-            onClick={() => setShowFolderModal(false)}
+            onClick={() => setShowCreateFolderModal(false)}
           >
-            <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <Card
+              className="w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
               <CardHeader>
                 <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
                   Neuer Ordner
@@ -521,20 +436,188 @@ export default function NotesPage() {
                     <Label>Ordnername *</Label>
                     <Input
                       value={folderForm.name}
-                      onChange={(e) => setFolderForm({ name: e.target.value })}
-                      placeholder="z.B. Mathematik"
+                      onChange={(e) => setFolderForm({ ...folderForm, name: e.target.value })}
+                      placeholder="z.B. Mathematik, Programmieren"
                       required
+                    />
+                  </div>
+                  {folders.length > 0 && (
+                    <div>
+                      <Label>Übergeordneter Ordner (optional)</Label>
+                      <select
+                        value={folderForm.parentId}
+                        onChange={(e) => setFolderForm({ ...folderForm, parentId: e.target.value })}
+                        className="w-full px-3 py-2 rounded"
+                        style={{
+                          backgroundColor: 'rgb(var(--bg-elevated))',
+                          color: 'rgb(var(--fg))',
+                          border: '1px solid rgb(var(--card-border))'
+                        }}
+                      >
+                        <option value="">Kein übergeordneter Ordner</option>
+                        {folders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <Button type="submit" className="flex-1">
+                      Erstellen
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setShowCreateFolderModal(false)}
+                    >
+                      Abbrechen
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Create Note Modal */}
+        {showCreateNoteModal && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-50"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => setShowCreateNoteModal(false)}
+          >
+            <Card
+              className="w-full max-w-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardHeader>
+                <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
+                  Neue Notiz
+                </h3>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateNote} className="space-y-4">
+                  <div>
+                    <Label>Titel *</Label>
+                    <Input
+                      value={noteForm.title}
+                      onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
+                      placeholder="Titel der Notiz"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Inhalt *</Label>
+                    <Textarea
+                      value={noteForm.content}
+                      onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
+                      placeholder="Deine Notizen hier..."
+                      rows={10}
+                      required
+                    />
+                  </div>
+                  {folders.length > 0 && (
+                    <div>
+                      <Label>Ordner (optional)</Label>
+                      <select
+                        value={noteForm.folderId}
+                        onChange={(e) => setNoteForm({ ...noteForm, folderId: e.target.value })}
+                        className="w-full px-3 py-2 rounded"
+                        style={{
+                          backgroundColor: 'rgb(var(--bg-elevated))',
+                          color: 'rgb(var(--fg))',
+                          border: '1px solid rgb(var(--card-border))'
+                        }}
+                      >
+                        <option value="">Kein Ordner</option>
+                        {folders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <Label>Tags (optional)</Label>
+                    <Input
+                      value={noteForm.tags}
+                      onChange={(e) => setNoteForm({ ...noteForm, tags: e.target.value })}
+                      placeholder="z.B. wichtig, prüfung, zusammenfassung (kommagetrennt)"
                     />
                   </div>
                   <div className="flex gap-3">
                     <Button type="submit" className="flex-1">
                       Erstellen
                     </Button>
-                    <Button type="button" onClick={() => setShowFolderModal(false)}>
+                    <Button
+                      type="button"
+                      onClick={() => setShowCreateNoteModal(false)}
+                    >
                       Abbrechen
                     </Button>
                   </div>
                 </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Note Detail Modal */}
+        {selectedNote && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-50"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => setSelectedNote(null)}
+          >
+            <Card
+              className="w-full max-w-4xl max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold mb-2" style={{ color: 'rgb(var(--fg))' }}>
+                    {selectedNote.title}
+                  </h3>
+                  {selectedNote.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedNote.tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="text-xs px-2 py-1 rounded"
+                          style={{
+                            backgroundColor: 'rgba(var(--accent), 0.1)',
+                            color: 'rgb(var(--accent))'
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Button onClick={() => setSelectedNote(null)}>✕</Button>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="prose max-w-none"
+                  style={{ color: 'rgb(var(--fg))' }}
+                >
+                  <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                    {selectedNote.content}
+                  </pre>
+                </div>
+                <div
+                  className="text-xs mt-6 pt-4"
+                  style={{ 
+                    color: 'rgb(var(--fg-muted))',
+                    borderTop: '1px solid rgb(var(--card-border))'
+                  }}
+                >
+                  Erstellt: {new Date(selectedNote.createdAt).toLocaleString('de-DE')} | 
+                  Aktualisiert: {new Date(selectedNote.updatedAt).toLocaleString('de-DE')}
+                </div>
               </CardContent>
             </Card>
           </div>
