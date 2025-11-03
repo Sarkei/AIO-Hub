@@ -27,7 +27,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import axios from 'axios'
 
@@ -64,7 +64,7 @@ const navCategories: NavCategory[] = [
   {
     id: 'arbeit',
     title: 'Arbeit',
-    icon: '�',
+    icon: '💼',
     items: [
       { href: '/todos', label: 'Todos', icon: '✅' },
       { href: '/events', label: 'Termine', icon: '📅' },
@@ -89,6 +89,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false)
   const navRef = useRef<HTMLDivElement>(null)
 
   // Load collapsed categories from backend on mount
@@ -96,24 +97,40 @@ export default function Sidebar() {
     const fetchPreferences = async () => {
       try {
         const token = localStorage.getItem('token')
-        if (!token) return
+        if (!token) {
+          console.log('[SIDEBAR] No token found, skipping preferences fetch')
+          setPreferencesLoaded(true)
+          return
+        }
 
+        console.log('[SIDEBAR] Fetching preferences...')
         const response = await axios.get('http://localhost:4000/api/preferences', {
           headers: {
             Authorization: `Bearer ${token}`
           }
         })
 
-        if (response.data?.collapsedCategories) {
-          setCollapsedCategories(new Set(response.data.collapsedCategories))
+        console.log('[SIDEBAR] Preferences response:', response.data)
+
+        if (response.data?.preferences?.collapsedCategories) {
+          const categories = response.data.preferences.collapsedCategories
+          console.log('[SIDEBAR] Setting collapsed categories:', categories)
+          setCollapsedCategories(new Set(categories))
+        } else {
+          console.log('[SIDEBAR] No collapsed categories found in response')
         }
+        setPreferencesLoaded(true)
       } catch (error) {
-        console.error('Failed to fetch preferences:', error)
+        console.error('[SIDEBAR] Failed to fetch preferences:', error)
+        setPreferencesLoaded(true)
       }
     }
 
     if (user) {
+      console.log('[SIDEBAR] User found, fetching preferences for:', user.username)
       fetchPreferences()
+    } else {
+      console.log('[SIDEBAR] No user found')
     }
   }, [user])
 
@@ -125,7 +142,10 @@ export default function Sidebar() {
     // Restore scroll position from sessionStorage
     const savedScrollPos = sessionStorage.getItem('sidebar-scroll-position')
     if (savedScrollPos) {
-      navElement.scrollTop = parseInt(savedScrollPos, 10)
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        navElement.scrollTop = parseInt(savedScrollPos, 10)
+      })
     }
 
     // Save scroll position whenever user scrolls
@@ -138,7 +158,7 @@ export default function Sidebar() {
     return () => {
       navElement.removeEventListener('scroll', handleScroll)
     }
-  }, [])
+  }, [preferencesLoaded]) // Re-run after preferences are loaded
 
   // Save collapsed categories to backend when they change
   const toggleCategory = async (categoryId: string) => {
@@ -150,22 +170,33 @@ export default function Sidebar() {
     }
     setCollapsedCategories(newSet)
 
+    console.log('[SIDEBAR] Toggling category:', categoryId)
+    console.log('[SIDEBAR] New collapsed categories:', Array.from(newSet))
+
     // Persist to backend
     try {
       const token = localStorage.getItem('token')
-      if (!token) return
+      if (!token) {
+        console.log('[SIDEBAR] No token, cannot save preferences')
+        return
+      }
 
-      await axios.put(
+      const payload = { collapsedCategories: Array.from(newSet) }
+      console.log('[SIDEBAR] Saving preferences:', payload)
+
+      const response = await axios.put(
         'http://localhost:4000/api/preferences/collapsed-categories',
-        { collapsedCategories: Array.from(newSet) },
+        payload,
         {
           headers: {
             Authorization: `Bearer ${token}`
           }
         }
       )
+      
+      console.log('[SIDEBAR] Preferences saved successfully:', response.data)
     } catch (error) {
-      console.error('Failed to save preferences:', error)
+      console.error('[SIDEBAR] Failed to save preferences:', error)
     }
   }
 
@@ -243,98 +274,140 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav ref={navRef} className="flex-1 overflow-y-auto px-3 py-2">
-        {navCategories.map((category) => (
-          <div key={category.id} className="mb-2">
-            {/* Category Header */}
-            <button
-              onClick={() => toggleCategory(category.id)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={{
-                color: 'rgb(var(--fg-subtle))',
-                backgroundColor: 'transparent',
-                transition: 'all var(--transition-fast)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(var(--fg), 0.04)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent'
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-base">{category.icon}</span>
-                <span>{category.title}</span>
-              </div>
-              <span className="text-xs transition-transform" style={{
-                transform: collapsedCategories.has(category.id) ? 'rotate(-90deg)' : 'rotate(0deg)'
-              }}>
-                ▼
-              </span>
-            </button>
-
-            {/* Category Items */}
-            {!collapsedCategories.has(category.id) && (
-              <ul className="space-y-0.5 mt-1">
-                {category.items.map((item) => {
-                  const active = pathname === item.href
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group"
-                        style={{
-                          backgroundColor: active ? 'rgba(var(--accent), 0.12)' : 'transparent',
-                          color: active ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))',
-                          transform: 'scale(1)',
-                          transition: 'all var(--transition-fast)',
-                          marginLeft: '8px'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.backgroundColor = 'rgba(var(--fg), 0.06)'
-                            e.currentTarget.style.color = 'rgb(var(--fg))'
-                            e.currentTarget.style.transform = 'scale(1.02)'
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.backgroundColor = 'transparent'
-                            e.currentTarget.style.color = 'rgb(var(--fg-muted))'
-                            e.currentTarget.style.transform = 'scale(1)'
-                          }
-                        }}
-                      >
-                        {/* Active Indicator Bar (Linear-style) */}
-                        {active && (
-                          <div 
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
-                            style={{ 
-                              backgroundColor: 'rgb(var(--accent))',
-                              boxShadow: '0 0 8px rgba(var(--accent), 0.5)'
-                            }}
-                          />
-                        )}
-                        
-                        <span className="text-lg w-6 flex items-center justify-center">
-                          {item.icon}
-                        </span>
-                        <span>{item.label}</span>
-                        
-                        {/* Hover Arrow (appears on hover) */}
-                        <span 
-                          className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                          style={{ color: 'rgb(var(--fg-subtle))' }}
-                        >
-                          →
-                        </span>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+        {!preferencesLoaded ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
+              Lädt...
+            </div>
           </div>
-        ))}
+        ) : (
+          navCategories.map((category, index) => (
+            <div key={category.id}>
+              {/* Spacer/Divider zwischen Kategorien */}
+              {index > 0 && (
+                <div 
+                  className="my-4 mx-2" 
+                  style={{ 
+                    height: '2px',
+                    background: 'linear-gradient(90deg, transparent, rgb(var(--card-border)), transparent)',
+                    position: 'relative'
+                  }}
+                >
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgb(var(--accent))',
+                      boxShadow: '0 0 8px rgba(var(--accent), 0.4)'
+                    }}
+                  />
+                </div>
+              )}
+              
+              <div className="mb-2">
+              {/* Category Header */}
+              <button
+                onClick={() => toggleCategory(category.id)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all"
+                style={{
+                  color: 'rgb(var(--fg))',
+                  backgroundColor: 'rgba(var(--accent), 0.08)',
+                  border: '1px solid rgba(var(--accent), 0.15)',
+                  transition: 'all var(--transition-fast)',
+                  marginBottom: '4px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(var(--accent), 0.12)'
+                  e.currentTarget.style.borderColor = 'rgba(var(--accent), 0.25)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(var(--accent), 0.08)'
+                  e.currentTarget.style.borderColor = 'rgba(var(--accent), 0.15)'
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{category.icon}</span>
+                  <span className="uppercase tracking-wide text-xs font-bold">{category.title}</span>
+                </div>
+                <span className="text-xs transition-transform" style={{
+                  transform: collapsedCategories.has(category.id) ? 'rotate(-90deg)' : 'rotate(0deg)',
+                  color: 'rgb(var(--accent))'
+                }}>
+                  ▼
+                </span>
+              </button>
+
+              {/* Category Items */}
+              {!collapsedCategories.has(category.id) && (
+                <ul className="space-y-0.5 mt-1">
+                  {category.items.map((item) => {
+                    const active = pathname === item.href
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          prefetch={true}
+                          className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group"
+                          style={{
+                            backgroundColor: active ? 'rgba(var(--accent), 0.12)' : 'transparent',
+                            color: active ? 'rgb(var(--accent))' : 'rgb(var(--fg-muted))',
+                            transform: 'scale(1)',
+                            transition: 'all var(--transition-fast)',
+                            marginLeft: '8px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!active) {
+                              e.currentTarget.style.backgroundColor = 'rgba(var(--fg), 0.06)'
+                              e.currentTarget.style.color = 'rgb(var(--fg))'
+                              e.currentTarget.style.transform = 'scale(1.02)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!active) {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                              e.currentTarget.style.color = 'rgb(var(--fg-muted))'
+                              e.currentTarget.style.transform = 'scale(1)'
+                            }
+                          }}
+                        >
+                          {/* Active Indicator Bar (Linear-style) */}
+                          {active && (
+                            <div 
+                              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+                              style={{ 
+                                backgroundColor: 'rgb(var(--accent))',
+                                boxShadow: '0 0 8px rgba(var(--accent), 0.5)'
+                              }}
+                            />
+                          )}
+                          
+                          <span className="text-lg w-6 flex items-center justify-center">
+                            {item.icon}
+                          </span>
+                          <span>{item.label}</span>
+                          
+                          {/* Hover Arrow (appears on hover) */}
+                          <span 
+                            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ color: 'rgb(var(--fg-subtle))' }}
+                          >
+                            →
+                          </span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+            </div>
+          ))
+        )}
       </nav>
 
       {/* Bottom Section */}

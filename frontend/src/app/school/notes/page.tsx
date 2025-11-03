@@ -1,15 +1,44 @@
+/**
+ * ============================================================================
+ * SCHOOL NOTES PAGE - TACTICAL DESIGN
+ * ============================================================================
+ * 
+ * Purpose: Manage school notes with folder organization and tagging system
+ * Design: Tactical/Military theme with lime green accents
+ * 
+ * Features:
+ * - 📁 Folder management for note organization
+ * - 📝 Note creation with markdown support
+ * - 🏷️ Tag system for categorization
+ * - 🔍 Folder/Notes view switching
+ * 
+ * Search Keywords: #SCHOOL #NOTES #FOLDERS #TAGS #ORGANIZATION
+ * ============================================================================
+ */
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import AppLayout from '@/components/AppLayout';
-import { Card, CardHeader, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Label from '@/components/ui/Label';
-import Textarea from '@/components/ui/Textarea';
 
+// ============================================================================
+// COMPONENT IMPORTS - Tactical Design System
+// ============================================================================
+import AppLayout from '@/components/AppLayout';
+import { TacticalStyles, TacticalHelpers } from '@/components/tactical/TacticalStyles';
+import { 
+  TacticalHeader, 
+  TacticalSection, 
+  TacticalEmptyState, 
+  TacticalButton, 
+  TacticalModal, 
+  TacticalActionCard 
+} from '@/components/tactical/TacticalComponents';
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
 interface NoteFolder {
   id: string;
   name: string;
@@ -28,44 +57,40 @@ interface Note {
   updatedAt: string;
 }
 
-interface NoteFile {
-  id: string;
-  noteId: string | null;
-  filename: string;
-  fileType: string;
-  fileSize: number;
-  createdAt: string;
-}
-
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 export default function SchoolNotesPage() {
   const router = useRouter();
+
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
   const [folders, setFolders] = useState<NoteFolder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [files, setFiles] = useState<NoteFile[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
-  const [showCreateNoteModal, setShowCreateNoteModal] = useState(false);
-  const [view, setView] = useState<'folders' | 'notes' | 'files'>('folders');
+  const [view, setView] = useState<'folders' | 'notes'>('folders');
+  
+  // Modal States
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  
+  // Form States
+  const [folderForm, setFolderForm] = useState({ name: '', parentId: '' });
+  const [noteForm, setNoteForm] = useState({ title: '', content: '', folderId: '', tags: '' });
 
-  const [folderForm, setFolderForm] = useState({
-    name: '',
-    parentId: ''
-  });
-
-  const [noteForm, setNoteForm] = useState({
-    title: '',
-    content: '',
-    folderId: '',
-    tags: ''
-  });
-
+  // --------------------------------------------------------------------------
+  // LIFECYCLE HOOKS
+  // --------------------------------------------------------------------------
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --------------------------------------------------------------------------
+  // DATA FETCHING
+  // --------------------------------------------------------------------------
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -74,554 +99,482 @@ export default function SchoolNotesPage() {
         return;
       }
 
-      // Temporär: Bis die Backend-Endpoints implementiert sind, zeigen wir eine leere Ansicht
-      setFolders([]);
-      setNotes([]);
-      setFiles([]);
+      const [foldersRes, notesRes] = await Promise.all([
+        axios.get('/api/school/notes/folders', { 
+          headers: { Authorization: `Bearer ${token}` } 
+        }),
+        axios.get('/api/school/notes', { 
+          headers: { Authorization: `Bearer ${token}` } 
+        })
+      ]);
+
+      setFolders(foldersRes.data.folders || []);
+      setNotes(notesRes.data.notes || []);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('[NOTES] Error fetching data:', error);
       setLoading(false);
     }
   };
 
+  // --------------------------------------------------------------------------
+  // EVENT HANDLERS - Folder Management
+  // --------------------------------------------------------------------------
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(
-        'http://localhost:4000/api/school/notes/folders',
-        folderForm,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setShowCreateFolderModal(false);
+      await axios.post('/api/school/notes/folders', folderForm, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
+      setShowFolderModal(false);
       setFolderForm({ name: '', parentId: '' });
       fetchData();
     } catch (error) {
-      console.error('Error creating folder:', error);
-      alert('Fehler beim Erstellen des Ordners');
+      console.error('[NOTES] Error creating folder:', error);
     }
   };
 
+  // --------------------------------------------------------------------------
+  // EVENT HANDLERS - Note Management
+  // --------------------------------------------------------------------------
   const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const tagsArray = noteForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      await axios.post(
-        'http://localhost:4000/api/school/notes',
-        {
-          ...noteForm,
-          tags: tagsArray
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setShowCreateNoteModal(false);
+      const payload = {
+        ...noteForm,
+        folderId: selectedFolderId || null,
+        tags: noteForm.tags ? noteForm.tags.split(',').map(t => t.trim()) : []
+      };
+
+      await axios.post('/api/school/notes', payload, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
+      setShowNoteModal(false);
       setNoteForm({ title: '', content: '', folderId: '', tags: '' });
       fetchData();
     } catch (error) {
-      console.error('Error creating note:', error);
-      alert('Fehler beim Erstellen der Notiz');
+      console.error('[NOTES] Error creating note:', error);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    if (selectedFolderId) {
-      formData.append('folderId', selectedFolderId);
-    }
-
+  const handleDeleteNote = async (id: string) => {
+    if (!confirm('Notiz wirklich löschen?')) return;
+    
     try {
       const token = localStorage.getItem('token');
-      await axios.post(
-        'http://localhost:4000/api/school/notes/files/upload',
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
+      await axios.delete(`/api/school/notes/${id}`, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       fetchData();
     } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Fehler beim Hochladen der Datei');
+      console.error('[NOTES] Error deleting note:', error);
     }
   };
 
+  // --------------------------------------------------------------------------
+  // UTILITY FUNCTIONS
+  // --------------------------------------------------------------------------
+  const getNotesInFolder = (folderId: string | null) => {
+    return notes.filter(n => n.folderId === folderId);
+  };
+
+  // --------------------------------------------------------------------------
+  // LOADING STATE
+  // --------------------------------------------------------------------------
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-full">
-          <div className="text-lg" style={{ color: 'rgb(var(--fg-muted))' }}>
-            Lädt...
-          </div>
-        </div>
-      </AppLayout>
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: TacticalStyles.colors.bg, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <p style={{ color: TacticalStyles.colors.fgMuted }}>LADE NOTIZEN...</p>
+      </div>
     );
   }
 
+  // --------------------------------------------------------------------------
+  // MAIN RENDER
+  // --------------------------------------------------------------------------
   return (
     <AppLayout>
-      <div className="p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2" style={{ color: 'rgb(var(--fg))' }}>
-            📝 Notizen
-          </h1>
-          <p style={{ color: 'rgb(var(--fg-muted))' }}>
-            Lernmaterialien, Mitschriften und Dokumente
-          </p>
-        </div>
-
-        {/* View Switcher */}
-        <div className="flex gap-2 mb-6">
-          <Button
-            onClick={() => setView('folders')}
-            style={{
-              backgroundColor: view === 'folders' ? 'rgb(var(--accent))' : 'rgb(var(--bg-elevated))',
-              color: view === 'folders' ? 'white' : 'rgb(var(--fg))'
-            }}
-          >
-            📁 Ordner
-          </Button>
-          <Button
-            onClick={() => setView('notes')}
-            style={{
-              backgroundColor: view === 'notes' ? 'rgb(var(--accent))' : 'rgb(var(--bg-elevated))',
-              color: view === 'notes' ? 'white' : 'rgb(var(--fg))'
-            }}
-          >
-            📝 Notizen
-          </Button>
-          <Button
-            onClick={() => setView('files')}
-            style={{
-              backgroundColor: view === 'files' ? 'rgb(var(--accent))' : 'rgb(var(--bg-elevated))',
-              color: view === 'files' ? 'white' : 'rgb(var(--fg))'
-            }}
-          >
-            📎 Dateien
-          </Button>
-        </div>
-
-        {/* Folders View */}
-        {view === 'folders' && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                Ordner
-              </h3>
-              <Button onClick={() => setShowCreateFolderModal(true)}>
-                + Neuer Ordner
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {folders.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="text-6xl mb-4">📁</div>
-                  <p className="text-lg mb-2" style={{ color: 'rgb(var(--fg))' }}>
-                    Noch keine Ordner
-                  </p>
-                  <p style={{ color: 'rgb(var(--fg-muted))' }}>
-                    Erstelle Ordner, um deine Notizen zu organisieren
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {folders.map((folder) => (
-                    <Card
-                      key={folder.id}
-                      className="cursor-pointer transition-all hover:scale-105"
-                      onClick={() => {
-                        setSelectedFolderId(folder.id);
-                        setView('notes');
-                      }}
-                      style={{
-                        backgroundColor: 'rgb(var(--bg-elevated))',
-                        border: '1px solid rgb(var(--card-border))'
-                      }}
-                    >
-                      <CardContent className="p-4">
-                        <div className="text-4xl mb-2">📁</div>
-                        <h4 className="font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                          {folder.name}
-                        </h4>
-                        <p className="text-xs mt-1" style={{ color: 'rgb(var(--fg-muted))' }}>
-                          {folder.path}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Notes View */}
-        {view === 'notes' && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                  Notizen
-                </h3>
-                {selectedFolderId && (
-                  <button
-                    onClick={() => setSelectedFolderId(null)}
-                    className="text-sm mt-1"
-                    style={{ color: 'rgb(var(--accent))' }}
-                  >
-                    ← Alle Notizen anzeigen
-                  </button>
+      <div style={{ 
+        padding: '2rem 1rem', 
+        backgroundColor: TacticalStyles.colors.bg, 
+        minHeight: 'calc(100vh - 4rem)' 
+      }}>
+        <div style={{ maxWidth: '90rem', margin: '0 auto' }}>
+          
+          {/* ================================================================
+              HEADER SECTION
+              ================================================================ */}
+          <TacticalHeader
+            title="NOTIZEN"
+            subtitle="DOKUMENTE & ORDNER"
+            actions={
+              <div className="flex gap-2">
+                <TacticalButton 
+                  variant="secondary" 
+                  onClick={() => setView(view === 'folders' ? 'notes' : 'folders')}
+                >
+                  {view === 'folders' ? '📄 NOTIZEN' : '📁 ORDNER'}
+                </TacticalButton>
+                {view === 'folders' ? (
+                  <TacticalButton onClick={() => {
+                    setFolderForm({ name: '', parentId: '' });
+                    setShowFolderModal(true);
+                  }}>
+                    + ORDNER
+                  </TacticalButton>
+                ) : (
+                  <TacticalButton onClick={() => {
+                    setNoteForm({ title: '', content: '', folderId: '', tags: '' });
+                    setShowNoteModal(true);
+                  }}>
+                    + NOTIZ
+                  </TacticalButton>
                 )}
               </div>
-              <Button onClick={() => setShowCreateNoteModal(true)}>
-                + Neue Notiz
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {notes.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="text-6xl mb-4">📝</div>
-                  <p className="text-lg mb-2" style={{ color: 'rgb(var(--fg))' }}>
-                    Noch keine Notizen
-                  </p>
-                  <p style={{ color: 'rgb(var(--fg-muted))' }}>
-                    Erstelle deine erste Notiz
-                  </p>
+            }
+          />
+
+          {/* ================================================================
+              FOLDERS VIEW
+              ================================================================ */}
+          {view === 'folders' ? (
+            <TacticalSection title="ORDNERSTRUKTUR" markerColor="accent">
+              {folders.length === 0 ? (
+                <TacticalEmptyState 
+                  icon="📁" 
+                  title="KEINE ORDNER" 
+                  description="Erstelle deinen ersten Ordner für Notizen." 
+                  actionLabel="+ ERSTEN ORDNER ERSTELLEN" 
+                  onAction={() => setShowFolderModal(true)} 
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {folders.map(folder => {
+                    const folderNotes = getNotesInFolder(folder.id);
+                    return (
+                      <TacticalActionCard
+                        key={folder.id}
+                        icon="📁"
+                        title={folder.name}
+                        description={`${folderNotes.length} Notizen`}
+                        onClick={() => {
+                          setSelectedFolderId(folder.id);
+                          setView('notes');
+                        }}
+                      />
+                    );
+                  })}
                 </div>
+              )}
+            </TacticalSection>
+          ) : (
+            
+            /* ================================================================
+               NOTES VIEW
+               ================================================================ */
+            <TacticalSection 
+              title={selectedFolderId 
+                ? folders.find(f => f.id === selectedFolderId)?.name || 'NOTIZEN' 
+                : 'ALLE NOTIZEN'
+              } 
+              markerColor="forest"
+            >
+              {getNotesInFolder(selectedFolderId).length === 0 ? (
+                <TacticalEmptyState 
+                  icon="📄" 
+                  title="KEINE NOTIZEN" 
+                  description="Erstelle deine erste Notiz in diesem Ordner." 
+                  actionLabel="+ ERSTE NOTIZ ERSTELLEN" 
+                  onAction={() => setShowNoteModal(true)} 
+                />
               ) : (
                 <div className="space-y-3">
-                  {notes.map((note) => (
-                    <Card
-                      key={note.id}
-                      className="cursor-pointer transition-all hover:shadow-lg"
-                      onClick={() => setSelectedNote(note)}
-                      style={{
-                        backgroundColor: 'rgb(var(--bg-elevated))',
-                        border: '1px solid rgb(var(--card-border))'
+                  {getNotesInFolder(selectedFolderId).map(note => (
+                    <div 
+                      key={note.id} 
+                      style={{ 
+                        backgroundColor: TacticalStyles.colors.card, 
+                        border: TacticalStyles.borders.default, 
+                        borderRadius: '0.5rem', 
+                        padding: '1.5rem' 
                       }}
                     >
-                      <CardContent className="p-4">
-                        <h4 className="font-bold mb-2" style={{ color: 'rgb(var(--fg))' }}>
-                          {note.title}
-                        </h4>
-                        <p
-                          className="text-sm mb-2 line-clamp-2"
-                          style={{ color: 'rgb(var(--fg-muted))' }}
-                        >
-                          {note.content}
-                        </p>
-                        {note.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {note.tags.map((tag, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs px-2 py-1 rounded"
-                                style={{
-                                  backgroundColor: 'rgba(var(--accent), 0.1)',
-                                  color: 'rgb(var(--accent))'
-                                }}
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div
-                          className="text-xs mt-2"
-                          style={{ color: 'rgb(var(--fg-muted))' }}
-                        >
-                          Aktualisiert: {new Date(note.updatedAt).toLocaleDateString('de-DE')}
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 style={{ 
+                            fontSize: '1.25rem', 
+                            fontWeight: '700', 
+                            color: TacticalStyles.colors.fg, 
+                            marginBottom: '0.5rem' 
+                          }}>
+                            {note.title}
+                          </h3>
+                          <p style={{ 
+                            fontSize: '0.875rem', 
+                            color: TacticalStyles.colors.fgMuted, 
+                            marginBottom: '1rem' 
+                          }}>
+                            {note.content.substring(0, 200)}
+                            {note.content.length > 200 ? '...' : ''}
+                          </p>
+                          
+                          {/* Tags */}
+                          {note.tags && note.tags.length > 0 && (
+                            <div className="flex gap-2 flex-wrap">
+                              {note.tags.map((tag, idx) => (
+                                <span 
+                                  key={idx} 
+                                  style={{ 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: '700', 
+                                    color: TacticalStyles.colors.accent, 
+                                    padding: '0.25rem 0.5rem', 
+                                    border: `1px solid ${TacticalStyles.colors.accent}`, 
+                                    borderRadius: '0.25rem' 
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <TacticalButton onClick={() => setSelectedNote(note)}>
+                            ANZEIGEN
+                          </TacticalButton>
+                          <TacticalButton 
+                            variant="danger" 
+                            onClick={() => handleDeleteNote(note.id)}
+                          >
+                            DEL
+                          </TacticalButton>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
+            </TacticalSection>
+          )}
 
-        {/* Files View */}
-        {view === 'files' && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                Dateien
-              </h3>
-              <div>
-                <input
-                  type="file"
-                  id="fileUpload"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
+          {/* ================================================================
+              CREATE FOLDER MODAL
+              ================================================================ */}
+          <TacticalModal 
+            isOpen={showFolderModal} 
+            onClose={() => setShowFolderModal(false)} 
+            title="NEUER ORDNER"
+          >
+            <form onSubmit={handleCreateFolder}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.875rem', 
+                  fontWeight: '700', 
+                  color: TacticalStyles.colors.fg, 
+                  marginBottom: '0.5rem',
+                  textTransform: 'uppercase'
+                }}>
+                  NAME *
+                </label>
+                <input 
+                  type="text" 
+                  value={folderForm.name} 
+                  onChange={(e: any) => setFolderForm({ ...folderForm, name: e.target.value })} 
+                  required 
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    backgroundColor: TacticalStyles.colors.card,
+                    border: TacticalStyles.borders.subtle,
+                    borderRadius: '0.375rem',
+                    color: TacticalStyles.colors.fg,
+                    fontSize: '1rem'
+                  }} 
                 />
-                <Button onClick={() => document.getElementById('fileUpload')?.click()}>
-                  + Datei hochladen
-                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {files.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="text-6xl mb-4">📎</div>
-                  <p className="text-lg mb-2" style={{ color: 'rgb(var(--fg))' }}>
-                    Noch keine Dateien
-                  </p>
-                  <p style={{ color: 'rgb(var(--fg-muted))' }}>
-                    Lade PDFs, Bilder und andere Dokumente hoch
-                  </p>
+              <div className="flex justify-end gap-2">
+                <TacticalButton 
+                  type="button" 
+                  variant="secondary" 
+                  onClick={() => setShowFolderModal(false)}
+                >
+                  ABBRECHEN
+                </TacticalButton>
+                <TacticalButton type="submit">ERSTELLEN</TacticalButton>
+              </div>
+            </form>
+          </TacticalModal>
+
+          {/* ================================================================
+              CREATE NOTE MODAL
+              ================================================================ */}
+          <TacticalModal 
+            isOpen={showNoteModal} 
+            onClose={() => setShowNoteModal(false)} 
+            title="NEUE NOTIZ"
+          >
+            <form onSubmit={handleCreateNote}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.875rem', 
+                  fontWeight: '700', 
+                  color: TacticalStyles.colors.fg, 
+                  marginBottom: '0.5rem',
+                  textTransform: 'uppercase'
+                }}>
+                  TITEL *
+                </label>
+                <input 
+                  type="text" 
+                  value={noteForm.title} 
+                  onChange={(e: any) => setNoteForm({ ...noteForm, title: e.target.value })} 
+                  required 
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    backgroundColor: TacticalStyles.colors.card,
+                    border: TacticalStyles.borders.subtle,
+                    borderRadius: '0.375rem',
+                    color: TacticalStyles.colors.fg,
+                    fontSize: '1rem'
+                  }} 
+                />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.875rem', 
+                  fontWeight: '700', 
+                  color: TacticalStyles.colors.fg, 
+                  marginBottom: '0.5rem',
+                  textTransform: 'uppercase'
+                }}>
+                  INHALT *
+                </label>
+                <textarea 
+                  value={noteForm.content} 
+                  onChange={(e: any) => setNoteForm({ ...noteForm, content: e.target.value })} 
+                  rows={10} 
+                  required 
+                  style={{ 
+                    width: '100%',
+                    padding: '0.75rem',
+                    backgroundColor: TacticalStyles.colors.card,
+                    border: TacticalStyles.borders.subtle,
+                    borderRadius: '0.375rem',
+                    color: TacticalStyles.colors.fg,
+                    fontSize: '1rem',
+                    resize: 'vertical' as const, 
+                    minHeight: '200px' 
+                  }} 
+                />
+              </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '0.875rem', 
+                  fontWeight: '700', 
+                  color: TacticalStyles.colors.fg, 
+                  marginBottom: '0.5rem',
+                  textTransform: 'uppercase'
+                }}>
+                  TAGS (KOMMA-GETRENNT)
+                </label>
+                <input 
+                  type="text" 
+                  value={noteForm.tags} 
+                  onChange={(e: any) => setNoteForm({ ...noteForm, tags: e.target.value })} 
+                  placeholder="z.B. Mathe, Klausur, Wichtig" 
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    backgroundColor: TacticalStyles.colors.card,
+                    border: TacticalStyles.borders.subtle,
+                    borderRadius: '0.375rem',
+                    color: TacticalStyles.colors.fg,
+                    fontSize: '1rem'
+                  }} 
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <TacticalButton 
+                  type="button" 
+                  variant="secondary" 
+                  onClick={() => setShowNoteModal(false)}
+                >
+                  ABBRECHEN
+                </TacticalButton>
+                <TacticalButton type="submit">ERSTELLEN</TacticalButton>
+              </div>
+            </form>
+          </TacticalModal>
+
+          {/* ================================================================
+              NOTE DETAIL MODAL
+              ================================================================ */}
+          {selectedNote && (
+            <TacticalModal 
+              isOpen={!!selectedNote} 
+              onClose={() => setSelectedNote(null)} 
+              title={selectedNote.title}
+            >
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ 
+                  padding: '1rem', 
+                  backgroundColor: TacticalStyles.colors.cardHover, 
+                  border: TacticalStyles.borders.subtle, 
+                  borderRadius: '0.5rem', 
+                  whiteSpace: 'pre-wrap', 
+                  color: TacticalStyles.colors.fg 
+                }}>
+                  {selectedNote.content}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {files.map((file) => (
-                    <Card
-                      key={file.id}
-                      className="cursor-pointer transition-all hover:scale-105"
-                      style={{
-                        backgroundColor: 'rgb(var(--bg-elevated))',
-                        border: '1px solid rgb(var(--card-border))'
+              </div>
+              
+              {/* Note Tags */}
+              {selectedNote.tags && selectedNote.tags.length > 0 && (
+                <div className="flex gap-2 flex-wrap mb-4">
+                  {selectedNote.tags.map((tag, idx) => (
+                    <span 
+                      key={idx} 
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: '700', 
+                        color: TacticalStyles.colors.accent, 
+                        padding: '0.25rem 0.5rem', 
+                        border: `1px solid ${TacticalStyles.colors.accent}`, 
+                        borderRadius: '0.25rem' 
                       }}
                     >
-                      <CardContent className="p-4">
-                        <div className="text-4xl mb-2">
-                          {file.fileType.includes('pdf') ? '📄' : 
-                           file.fileType.includes('image') ? '🖼️' : '📎'}
-                        </div>
-                        <h4 className="font-bold mb-1" style={{ color: 'rgb(var(--fg))' }}>
-                          {file.filename}
-                        </h4>
-                        <p className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
-                          {(file.fileSize / 1024).toFixed(2)} KB
-                        </p>
-                        <p className="text-xs" style={{ color: 'rgb(var(--fg-muted))' }}>
-                          {new Date(file.createdAt).toLocaleDateString('de-DE')}
-                        </p>
-                      </CardContent>
-                    </Card>
+                      {tag}
+                    </span>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create Folder Modal */}
-        {showCreateFolderModal && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-            onClick={() => setShowCreateFolderModal(false)}
-          >
-            <Card
-              className="w-full max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <CardHeader>
-                <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                  Neuer Ordner
-                </h3>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateFolder} className="space-y-4">
-                  <div>
-                    <Label>Ordnername *</Label>
-                    <Input
-                      value={folderForm.name}
-                      onChange={(e) => setFolderForm({ ...folderForm, name: e.target.value })}
-                      placeholder="z.B. Mathematik, Programmieren"
-                      required
-                    />
-                  </div>
-                  {folders.length > 0 && (
-                    <div>
-                      <Label>Übergeordneter Ordner (optional)</Label>
-                      <select
-                        value={folderForm.parentId}
-                        onChange={(e) => setFolderForm({ ...folderForm, parentId: e.target.value })}
-                        className="w-full px-3 py-2 rounded"
-                        style={{
-                          backgroundColor: 'rgb(var(--bg-elevated))',
-                          color: 'rgb(var(--fg))',
-                          border: '1px solid rgb(var(--card-border))'
-                        }}
-                      >
-                        <option value="">Kein übergeordneter Ordner</option>
-                        {folders.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div className="flex gap-3">
-                    <Button type="submit" className="flex-1">
-                      Erstellen
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setShowCreateFolderModal(false)}
-                    >
-                      Abbrechen
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Create Note Modal */}
-        {showCreateNoteModal && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-            onClick={() => setShowCreateNoteModal(false)}
-          >
-            <Card
-              className="w-full max-w-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <CardHeader>
-                <h3 className="text-xl font-bold" style={{ color: 'rgb(var(--fg))' }}>
-                  Neue Notiz
-                </h3>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateNote} className="space-y-4">
-                  <div>
-                    <Label>Titel *</Label>
-                    <Input
-                      value={noteForm.title}
-                      onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
-                      placeholder="Titel der Notiz"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Inhalt *</Label>
-                    <Textarea
-                      value={noteForm.content}
-                      onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
-                      placeholder="Deine Notizen hier..."
-                      rows={10}
-                      required
-                    />
-                  </div>
-                  {folders.length > 0 && (
-                    <div>
-                      <Label>Ordner (optional)</Label>
-                      <select
-                        value={noteForm.folderId}
-                        onChange={(e) => setNoteForm({ ...noteForm, folderId: e.target.value })}
-                        className="w-full px-3 py-2 rounded"
-                        style={{
-                          backgroundColor: 'rgb(var(--bg-elevated))',
-                          color: 'rgb(var(--fg))',
-                          border: '1px solid rgb(var(--card-border))'
-                        }}
-                      >
-                        <option value="">Kein Ordner</option>
-                        {folders.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <Label>Tags (optional)</Label>
-                    <Input
-                      value={noteForm.tags}
-                      onChange={(e) => setNoteForm({ ...noteForm, tags: e.target.value })}
-                      placeholder="z.B. wichtig, prüfung, zusammenfassung (kommagetrennt)"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button type="submit" className="flex-1">
-                      Erstellen
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setShowCreateNoteModal(false)}
-                    >
-                      Abbrechen
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Note Detail Modal */}
-        {selectedNote && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-            onClick={() => setSelectedNote(null)}
-          >
-            <Card
-              className="w-full max-w-4xl max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold mb-2" style={{ color: 'rgb(var(--fg))' }}>
-                    {selectedNote.title}
-                  </h3>
-                  {selectedNote.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedNote.tags.map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="text-xs px-2 py-1 rounded"
-                          style={{
-                            backgroundColor: 'rgba(var(--accent), 0.1)',
-                            color: 'rgb(var(--accent))'
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <Button onClick={() => setSelectedNote(null)}>✕</Button>
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="prose max-w-none"
-                  style={{ color: 'rgb(var(--fg))' }}
-                >
-                  <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                    {selectedNote.content}
-                  </pre>
-                </div>
-                <div
-                  className="text-xs mt-6 pt-4"
-                  style={{ 
-                    color: 'rgb(var(--fg-muted))',
-                    borderTop: '1px solid rgb(var(--card-border))'
-                  }}
-                >
-                  Erstellt: {new Date(selectedNote.createdAt).toLocaleString('de-DE')} | 
-                  Aktualisiert: {new Date(selectedNote.updatedAt).toLocaleString('de-DE')}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              
+              <div className="flex justify-end">
+                <TacticalButton onClick={() => setSelectedNote(null)}>
+                  SCHLIEẞEN
+                </TacticalButton>
+              </div>
+            </TacticalModal>
+          )}
+        </div>
       </div>
     </AppLayout>
   );

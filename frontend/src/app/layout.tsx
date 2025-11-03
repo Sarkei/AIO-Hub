@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'AIO Hub - All-in-One Hub',
   description: 'Your personal management hub for work, life, and fitness',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

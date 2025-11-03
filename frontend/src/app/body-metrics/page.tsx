@@ -3,13 +3,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import AppLayout from '@/components/AppLayout'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import Textarea from '@/components/ui/Textarea'
-import { Card } from '@/components/ui/Card'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import AppLayout from '@/components/AppLayout';
+import { TacticalStyles, TacticalHelpers } from '@/components/tactical/TacticalStyles';
+import {
+  TacticalHeader,
+  TacticalSection,
+  TacticalStatCard,
+  TacticalEmptyState,
+  TacticalButton,
+  TacticalModal,
+} from '@/components/tactical/TacticalComponents';
 
+// ==================== TYPES ====================
 interface BodyMetric {
   id: string;
   date: string;
@@ -23,7 +38,6 @@ interface BodyMetric {
   calves?: number;
   notes?: string;
   created_at: string;
-  updated_at: string;
 }
 
 interface FormData {
@@ -49,9 +63,12 @@ const emptyForm: FormData = {
   biceps: '',
   thighs: '',
   calves: '',
-  notes: ''
+  notes: '',
 };
 
+type MetricType = 'weight' | 'body_fat' | 'chest' | 'waist' | 'hips' | 'biceps' | 'thighs' | 'calves';
+
+// ==================== MAIN COMPONENT ====================
 export default function BodyMetricsPage() {
   const router = useRouter();
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
@@ -59,10 +76,10 @@ export default function BodyMetricsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>(emptyForm);
-  const [viewMode, setViewMode] = useState<'list' | 'chart'>('list');
-  const [selectedMetric, setSelectedMetric] = useState<'weight' | 'chest' | 'waist' | 'hips' | 'biceps' | 'thighs' | 'calves' | 'bodyFat'>('weight');
-  const [showStats, setShowStats] = useState(true);
+  const [viewMode, setViewMode] = useState<'overview' | 'chart' | 'table'>('overview');
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>('weight');
 
+  // ==================== FETCH DATA ====================
   const fetchMetrics = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -72,7 +89,7 @@ export default function BodyMetricsPage() {
       }
 
       const response = await axios.get('/api/body-metrics', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       setMetrics(response.data.metrics || []);
@@ -82,7 +99,6 @@ export default function BodyMetricsPage() {
         router.push('/login');
       } else {
         console.error('Error fetching body metrics:', error);
-        alert('Fehler beim Laden der Körperdaten');
       }
     } finally {
       setLoading(false);
@@ -93,8 +109,7 @@ export default function BodyMetricsPage() {
     fetchMetrics();
   }, [fetchMetrics]);
 
-  
-
+  // ==================== HANDLERS ====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -102,11 +117,7 @@ export default function BodyMetricsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const payload: any = {
-        date: formData.date
-      };
-
-      // Nur ausgefüllte Felder hinzufügen
+      const payload: any = { date: formData.date };
       if (formData.weight) payload.weight = parseFloat(formData.weight);
       if (formData.bodyFat) payload.bodyFat = parseFloat(formData.bodyFat);
       if (formData.chest) payload.chest = parseFloat(formData.chest);
@@ -119,11 +130,11 @@ export default function BodyMetricsPage() {
 
       if (editingId) {
         await axios.put(`/api/body-metrics/${editingId}`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
       } else {
         await axios.post('/api/body-metrics', payload, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
       }
 
@@ -131,9 +142,9 @@ export default function BodyMetricsPage() {
       setEditingId(null);
       setFormData(emptyForm);
       fetchMetrics();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving body metric:', error);
-      alert(error.response?.data?.message || 'Fehler beim Speichern');
+      alert('Fehler beim Speichern');
     }
   };
 
@@ -149,393 +160,549 @@ export default function BodyMetricsPage() {
       biceps: metric.biceps?.toString() || '',
       thighs: metric.thighs?.toString() || '',
       calves: metric.calves?.toString() || '',
-      notes: metric.notes || ''
+      notes: metric.notes || '',
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Diesen Eintrag wirklich löschen?')) return;
+    if (!confirm('Eintrag löschen?')) return;
 
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`/api/body-metrics/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       fetchMetrics();
     } catch (error) {
       console.error('Error deleting body metric:', error);
-      alert('Fehler beim Löschen');
     }
   };
 
-  const setToday = () => {
-    setFormData({ ...formData, date: new Date().toISOString().split('T')[0] });
+  // ==================== CALCULATIONS ====================
+  const getLatestMetric = () => (metrics.length > 0 ? metrics[0] : null);
+
+  const getWeekAgoMetric = () => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return metrics.find((m) => new Date(m.date) <= weekAgo) || null;
+  };
+
+  const calculateChange = (current?: number, previous?: number) => {
+    if (!current || !previous) return null;
+    const value = current - previous;
+    const percentage = (value / previous) * 100;
+    return { value, percentage };
   };
 
   const getChartData = () => {
     return metrics
       .slice()
       .reverse()
-      .map(m => ({
-        date: new Date(m.date).toLocaleDateString('de-DE'),
-        value: m[selectedMetric === 'bodyFat' ? 'body_fat' : selectedMetric] || 0
+      .map((m) => ({
+        date: new Date(m.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }),
+        value: m[selectedMetric] || 0,
       }));
   };
 
-  const metricLabels: Record<typeof selectedMetric, string> = {
-    weight: 'Gewicht (kg)',
-    bodyFat: 'Körperfett (%)',
-    chest: 'Brust (cm)',
-    waist: 'Taille (cm)',
-    hips: 'Hüfte (cm)',
-    biceps: 'Bizeps (cm)',
-    thighs: 'Oberschenkel (cm)',
-    calves: 'Waden (cm)'
-  };
-
-  // Statistiken berechnen
-  const getLatestMetric = () => {
-    if (metrics.length === 0) return null;
-    return metrics[0];
-  };
-
-  const getWeekAgoMetric = () => {
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    
-    return metrics.find(m => new Date(m.date) <= weekAgo) || null;
-  };
-
-  const calculateChange = (current?: number, previous?: number): { value: number; percentage: number } | null => {
-    if (!current || !previous) return null;
-    const value = current - previous;
-    const percentage = ((value / previous) * 100);
-    return { value, percentage };
-  };
-
-  const getChangeColor = (change: number, isWeight: boolean = false): string => {
-    // Bei Gewicht: negativ = grün (Abnahme gut bei Diät)
-    // Bei Maßen: negativ = grün (Reduktion gut)
-    if (Math.abs(change) < 0.1) return 'text-gray-500';
-    return change < 0 ? 'text-green-600' : 'text-red-600';
-  };
-
-  const getChangeIcon = (change: number): string => {
-    if (Math.abs(change) < 0.1) return '➡️';
-    return change < 0 ? '📉' : '📈';
+  const metricLabels: Record<MetricType, string> = {
+    weight: 'GEWICHT (KG)',
+    body_fat: 'KÖRPERFETT (%)',
+    chest: 'BRUST (CM)',
+    waist: 'TAILLE (CM)',
+    hips: 'HÜFTE (CM)',
+    biceps: 'BIZEPS (CM)',
+    thighs: 'OBERSCHENKEL (CM)',
+    calves: 'WADEN (CM)',
   };
 
   const latestMetric = getLatestMetric();
   const weekAgoMetric = getWeekAgoMetric();
+  const weightChange = calculateChange(latestMetric?.weight, weekAgoMetric?.weight);
+  const bodyFatChange = calculateChange(latestMetric?.body_fat, weekAgoMetric?.body_fat);
+  const waistChange = calculateChange(latestMetric?.waist, weekAgoMetric?.waist);
 
-  const weightChange = latestMetric && weekAgoMetric ? calculateChange(latestMetric.weight, weekAgoMetric.weight) : null;
-  const bodyFatChange = latestMetric && weekAgoMetric ? calculateChange(latestMetric.body_fat, weekAgoMetric.body_fat) : null;
-
+  // ==================== LOADING ====================
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--bg))]">
-        <p className="text-lg text-[rgb(var(--fg-muted))]" role="status" aria-live="polite">Lade Körperdaten...</p>
+      <div
+        style={{
+          minHeight: '100vh',
+          backgroundColor: TacticalStyles.colors.bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <p style={{ color: TacticalStyles.colors.fgMuted }}>LADE KÖRPERDATEN...</p>
       </div>
     );
   }
 
+  // ==================== RENDER ====================
   return (
     <AppLayout>
-    <div className="py-8 px-4 bg-[rgb(var(--bg))]">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">📊 Body Metrics</h1>
-            <p className="text-[rgb(var(--fg-muted))] mt-1">Verfolge deine Körperdaten</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setViewMode(viewMode === 'list' ? 'chart' : 'list')}>
-              {viewMode === 'list' ? '📈 Chart' : '📋 Liste'}
-            </Button>
-            <Button
-              onClick={() => { setEditingId(null); setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] }); setShowModal(true); }}
-            >
-              + Neuer Eintrag
-            </Button>
-          </div>
-        </div>
+      <div
+        style={{
+          padding: '2rem 1rem',
+          backgroundColor: TacticalStyles.colors.bg,
+          minHeight: 'calc(100vh - 4rem)',
+        }}
+      >
+        <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+          <TacticalHeader
+            title="KÖRPERMETRIKEN"
+            subtitle="TRACKING & FORTSCHRITTSANALYSE"
+            actions={
+              <div className="flex gap-2">
+                <TacticalButton
+                  variant="secondary"
+                  onClick={() =>
+                    setViewMode(
+                      viewMode === 'overview' ? 'chart' : viewMode === 'chart' ? 'table' : 'overview'
+                    )
+                  }
+                >
+                  {viewMode === 'overview' ? '📈 CHART' : viewMode === 'chart' ? '📋 TABELLE' : '📊 ÜBERSICHT'}
+                </TacticalButton>
+                <TacticalButton
+                  onClick={() => {
+                    setEditingId(null);
+                    setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
+                    setShowModal(true);
+                  }}
+                >
+                  + MESSUNG
+                </TacticalButton>
+              </div>
+            }
+          />
 
-        {/* Statistiken Cards */}
-        {showStats && latestMetric && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {/* Aktuelles Gewicht */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Aktuelles Gewicht</span>
-                <span className="text-2xl">⚖️</span>
-              </div>
-              <div className="text-3xl font-bold">
-                {latestMetric.weight ? `${latestMetric.weight} kg` : '-'}
-              </div>
-              {weightChange && (
-                <div className={`text-sm mt-2 ${getChangeColor(weightChange.value, true)}`}>
-                  {getChangeIcon(weightChange.value)} {weightChange.value > 0 ? '+' : ''}{weightChange.value.toFixed(1)} kg
-                  <span className="text-[rgb(var(--fg-subtle))]"> ({weightChange.percentage > 0 ? '+' : ''}{weightChange.percentage.toFixed(1)}%)</span>
-                </div>
-              )}
-            </Card>
-
-            {/* Körperfett */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Körperfett</span>
-                <span className="text-2xl">💧</span>
-              </div>
-              <div className="text-3xl font-bold">
-                {latestMetric.body_fat ? `${latestMetric.body_fat}%` : '-'}
-              </div>
-              {bodyFatChange && (
-                <div className={`text-sm mt-2 ${getChangeColor(bodyFatChange.value)}`}>
-                  {getChangeIcon(bodyFatChange.value)} {bodyFatChange.value > 0 ? '+' : ''}{bodyFatChange.value.toFixed(1)}%
-                </div>
-              )}
-            </Card>
-
-            {/* Taille */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Taille</span>
-                <span className="text-2xl">📏</span>
-              </div>
-              <div className="text-3xl font-bold">
-                {latestMetric.waist ? `${latestMetric.waist} cm` : '-'}
-              </div>
-              {weekAgoMetric?.waist && latestMetric.waist && (
-                <div className={`text-sm mt-2 ${getChangeColor(latestMetric.waist - weekAgoMetric.waist)}`}>
-                  {getChangeIcon(latestMetric.waist - weekAgoMetric.waist)} {(latestMetric.waist - weekAgoMetric.waist) > 0 ? '+' : ''}{(latestMetric.waist - weekAgoMetric.waist).toFixed(1)} cm
-                </div>
-              )}
-            </Card>
-
-            {/* Letzte Messung */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-[rgb(var(--fg-muted))]">Letzte Messung</span>
-                <span className="text-2xl">📅</span>
-              </div>
-              <div className="text-xl font-bold">
-                {new Date(latestMetric.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}
-              </div>
-              <div className="text-sm text-[rgb(var(--fg-subtle))] mt-2">
-                {metrics.length} Einträge gesamt
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Chart View */}
-        {viewMode === 'chart' && (
-          <Card className="p-6 mb-6">
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Auswählen:</label>
-              <select
-                value={selectedMetric}
-                onChange={(e) => setSelectedMetric(e.target.value as any)}
-                className="select"
-              >
-                <option value="weight">Gewicht</option>
-                <option value="bodyFat">Körperfett</option>
-                <option value="chest">Brust</option>
-                <option value="waist">Taille</option>
-                <option value="hips">Hüfte</option>
-                <option value="biceps">Bizeps</option>
-                <option value="thighs">Oberschenkel</option>
-                <option value="calves">Waden</option>
-              </select>
-            </div>
-
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={getChartData()}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  name={metricLabels[selectedMetric]}
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
+          {/* OVERVIEW MODE */}
+          {viewMode === 'overview' && (
+            <>
+              {metrics.length === 0 ? (
+                <TacticalEmptyState
+                  icon="📊"
+                  title="KEINE MESSUNGEN"
+                  description="Starte jetzt mit deinem ersten Body-Tracking! Erfasse Gewicht, Körperfett und Umfänge um deinen Fortschritt zu überwachen."
+                  actionLabel="+ ERSTE MESSUNG"
+                  onAction={() => {
+                    setEditingId(null);
+                    setFormData({ ...emptyForm, date: new Date().toISOString().split('T')[0] });
+                    setShowModal(true);
+                  }}
                 />
-              </LineChart>
-            </ResponsiveContainer>
-          </Card>
-        )}
+              ) : (
+                <>
+                  {/* Stat Cards */}
+                  <TacticalSection title="AKTUELLE WERTE" markerColor="accent">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <TacticalStatCard
+                        label="GEWICHT"
+                        value={latestMetric?.weight?.toFixed(1) || '-'}
+                        unit="KG"
+                        subtitle={
+                          weightChange
+                            ? `${weightChange.value > 0 ? '+' : ''}${weightChange.value.toFixed(1)} KG (7 TAGE)`
+                            : undefined
+                        }
+                        borderColor="accent"
+                      />
+                      <TacticalStatCard
+                        label="KÖRPERFETT"
+                        value={latestMetric?.body_fat?.toFixed(1) || '-'}
+                        unit="%"
+                        subtitle={
+                          bodyFatChange
+                            ? `${bodyFatChange.value > 0 ? '+' : ''}${bodyFatChange.value.toFixed(1)}% (7 TAGE)`
+                            : undefined
+                        }
+                        borderColor="forest"
+                      />
+                      <TacticalStatCard
+                        label="TAILLE"
+                        value={latestMetric?.waist?.toFixed(1) || '-'}
+                        unit="CM"
+                        subtitle={
+                          waistChange
+                            ? `${waistChange.value > 0 ? '+' : ''}${waistChange.value.toFixed(1)} CM (7 TAGE)`
+                            : undefined
+                        }
+                        borderColor="olive"
+                      />
+                      <TacticalStatCard
+                        label="MESSUNGEN"
+                        value={metrics.length}
+                        unit="TOTAL"
+                        subtitle={`SEIT ${new Date(metrics[metrics.length - 1]?.date || '').toLocaleDateString('de-DE', { month: 'short', year: 'numeric' })}`}
+                        borderColor="accent"
+                      />
+                    </div>
+                  </TacticalSection>
 
-        {/* List View */}
-        {viewMode === 'list' && (
-          <Card className="overflow-hidden">
-            {metrics.length === 0 ? (
-              <div className="p-8 text-center text-[rgb(var(--fg-subtle))]">
-                Noch keine Einträge. Erstelle deinen ersten Eintrag!
+                  {/* Body Measurements */}
+                  {latestMetric && (
+                    <TacticalSection title="KÖRPERUMFÄNGE" markerColor="forest">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <TacticalStatCard
+                          label="BRUST"
+                          value={latestMetric?.chest?.toFixed(1) || '-'}
+                          unit="CM"
+                          borderColor="accent"
+                        />
+                        <TacticalStatCard
+                          label="BIZEPS"
+                          value={latestMetric?.biceps?.toFixed(1) || '-'}
+                          unit="CM"
+                          borderColor="forest"
+                        />
+                        <TacticalStatCard
+                          label="OBERSCHENKEL"
+                          value={latestMetric?.thighs?.toFixed(1) || '-'}
+                          unit="CM"
+                          borderColor="olive"
+                        />
+                        <TacticalStatCard
+                          label="WADEN"
+                          value={latestMetric?.calves?.toFixed(1) || '-'}
+                          unit="CM"
+                          borderColor="accent"
+                        />
+                      </div>
+                    </TacticalSection>
+                  )}
+
+                  {/* Quick Chart Preview */}
+                  <TacticalSection title="GEWICHTSVERLAUF (30 TAGE)" markerColor="olive">
+                    <div
+                      style={{
+                        backgroundColor: TacticalStyles.colors.card,
+                        border: TacticalStyles.borders.default,
+                        borderRadius: '0.5rem',
+                        padding: '1.5rem',
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={getChartData().slice(-30)}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={TacticalStyles.colors.border} />
+                          <XAxis dataKey="date" stroke={TacticalStyles.colors.fgSubtle} />
+                          <YAxis stroke={TacticalStyles.colors.fgSubtle} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: TacticalStyles.colors.card,
+                              border: TacticalStyles.borders.default,
+                              borderRadius: '0.375rem',
+                            }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke={TacticalStyles.colors.accent}
+                            strokeWidth={3}
+                            dot={{ fill: TacticalStyles.colors.accent, r: 4 }}
+                            activeDot={{ r: 6 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </TacticalSection>
+                </>
+              )}
+            </>
+          )}
+
+          {/* CHART MODE */}
+          {viewMode === 'chart' && metrics.length > 0 && (
+            <TacticalSection title="DETAILLIERTE ANALYSE" markerColor="accent">
+              <div
+                style={{
+                  backgroundColor: TacticalStyles.colors.card,
+                  border: TacticalStyles.borders.default,
+                  borderRadius: '0.5rem',
+                  padding: '1.5rem',
+                }}
+              >
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={TacticalHelpers.getLabelStyles()}>METRIK AUSWÄHLEN</label>
+                  <select
+                    value={selectedMetric}
+                    onChange={(e) => setSelectedMetric(e.target.value as MetricType)}
+                    style={{
+                      ...TacticalHelpers.getInputStyles(),
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="weight">GEWICHT</option>
+                    <option value="body_fat">KÖRPERFETT</option>
+                    <option value="chest">BRUST</option>
+                    <option value="waist">TAILLE</option>
+                    <option value="hips">HÜFTE</option>
+                    <option value="biceps">BIZEPS</option>
+                    <option value="thighs">OBERSCHENKEL</option>
+                    <option value="calves">WADEN</option>
+                  </select>
+                </div>
+
+                <ResponsiveContainer width="100%" height={500}>
+                  <LineChart data={getChartData()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={TacticalStyles.colors.border} />
+                    <XAxis dataKey="date" stroke={TacticalStyles.colors.fgSubtle} />
+                    <YAxis stroke={TacticalStyles.colors.fgSubtle} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: TacticalStyles.colors.card,
+                        border: TacticalStyles.borders.default,
+                        borderRadius: '0.375rem',
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      name={metricLabels[selectedMetric]}
+                      stroke={TacticalStyles.colors.accent}
+                      strokeWidth={3}
+                      dot={{ fill: TacticalStyles.colors.accent, r: 5 }}
+                      activeDot={{ r: 7 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[rgb(var(--bg-elevated))]">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[rgb(var(--fg-subtle))] uppercase">Datum</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gewicht</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Körperfett</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brust</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taille</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hüfte</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bizeps</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Oberschenkel</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Waden</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aktionen</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
-                    {metrics.map((metric) => (
-                      <tr key={metric.id} className="hover:bg-[rgb(var(--bg-elevated))]">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {new Date(metric.date).toLocaleDateString('de-DE')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.weight ? `${metric.weight} kg` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.body_fat ? `${metric.body_fat}%` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.chest ? `${metric.chest} cm` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.waist ? `${metric.waist} cm` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.hips ? `${metric.hips} cm` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.biceps ? `${metric.biceps} cm` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.thighs ? `${metric.thighs} cm` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[rgb(var(--fg-muted))]">
-                          {metric.calves ? `${metric.calves} cm` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => handleEdit(metric)}>Bearbeiten</Button>
-                            <Button variant="danger" size="sm" onClick={() => handleDelete(metric.id)}>Löschen</Button>
-                          </div>
-                        </td>
+            </TacticalSection>
+          )}
+
+          {/* TABLE MODE */}
+          {viewMode === 'table' && (
+            <TacticalSection title="ALLE MESSUNGEN" markerColor="forest">
+              {metrics.length === 0 ? (
+                <TacticalEmptyState
+                  icon="📊"
+                  title="KEINE MESSUNGEN"
+                  description="Erfasse deine erste Körpermessung."
+                  actionLabel="+ ERSTE MESSUNG"
+                  onAction={() => setShowModal(true)}
+                />
+              ) : (
+                <div
+                  style={{
+                    backgroundColor: TacticalStyles.colors.card,
+                    border: TacticalStyles.borders.default,
+                    borderRadius: '0.5rem',
+                    overflowX: 'auto',
+                  }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: TacticalStyles.colors.cardHover }}>
+                        <th style={TacticalHelpers.getTableHeader()}>DATUM</th>
+                        <th style={TacticalHelpers.getTableHeader()}>GEWICHT</th>
+                        <th style={TacticalHelpers.getTableHeader()}>FETT</th>
+                        <th style={TacticalHelpers.getTableHeader()}>BRUST</th>
+                        <th style={TacticalHelpers.getTableHeader()}>TAILLE</th>
+                        <th style={TacticalHelpers.getTableHeader()}>HÜFTE</th>
+                        <th style={TacticalHelpers.getTableHeader()}>BIZEPS</th>
+                        <th style={TacticalHelpers.getTableHeader()}>AKTION</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {metrics.map((metric) => (
+                        <tr
+                          key={metric.id}
+                          style={{ borderBottom: TacticalStyles.borders.subtle }}
+                        >
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {new Date(metric.date).toLocaleDateString('de-DE')}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {metric.weight ? `${metric.weight} KG` : '-'}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {metric.body_fat ? `${metric.body_fat}%` : '-'}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {metric.chest ? `${metric.chest} CM` : '-'}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {metric.waist ? `${metric.waist} CM` : '-'}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {metric.hips ? `${metric.hips} CM` : '-'}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            {metric.biceps ? `${metric.biceps} CM` : '-'}
+                          </td>
+                          <td style={TacticalHelpers.getTableCell()}>
+                            <div className="flex gap-2">
+                              <TacticalButton onClick={() => handleEdit(metric)}>EDIT</TacticalButton>
+                              <TacticalButton variant="danger" onClick={() => handleDelete(metric.id)}>
+                                DEL
+                              </TacticalButton>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TacticalSection>
+          )}
+
+          {/* Modal */}
+          <TacticalModal
+            isOpen={showModal}
+            onClose={() => {
+              setShowModal(false);
+              setEditingId(null);
+              setFormData(emptyForm);
+            }}
+            title={editingId ? 'MESSUNG BEARBEITEN' : 'NEUE MESSUNG'}
+          >
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>DATUM *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                    style={{ ...TacticalHelpers.getInputStyles(), flex: 1 }}
+                  />
+                  <TacticalButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      setFormData({ ...formData, date: new Date().toISOString().split('T')[0] })
+                    }
+                  >
+                    HEUTE
+                  </TacticalButton>
+                </div>
               </div>
-            )}
-          </Card>
-        )}
 
-        {/* Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="metrics-modal-title">
-              <h2 id="metrics-modal-title" className="text-2xl font-bold mb-4">
-                {editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}
-              </h2>
-
-              <form onSubmit={handleSubmit}>
-                {/* Datum */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Datum *
-                  </label>
-                  <div className="flex gap-2">
-                    <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="flex-1" required />
-                    <Button type="button" variant="secondary" onClick={setToday}>Heute</Button>
-                  </div>
+              <div className="grid grid-cols-2 gap-4" style={{ marginBottom: '1rem' }}>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>GEWICHT (KG)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.weight}
+                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                    placeholder="z.B. 75.5"
+                    style={TacticalHelpers.getInputStyles()}
+                  />
                 </div>
-
-                {/* Gewicht & Körperfett */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gewicht (kg)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} placeholder="z.B. 75.5" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Körperfett (%)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.bodyFat} onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })} placeholder="z.B. 15.5" />
-                  </div>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>KÖRPERFETT (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.bodyFat}
+                    onChange={(e) => setFormData({ ...formData, bodyFat: e.target.value })}
+                    placeholder="z.B. 15.5"
+                    style={TacticalHelpers.getInputStyles()}
+                  />
                 </div>
+              </div>
 
-                {/* Körpermaße */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Brust (cm)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.chest} onChange={(e) => setFormData({ ...formData, chest: e.target.value })} placeholder="z.B. 100" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Taille (cm)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.waist} onChange={(e) => setFormData({ ...formData, waist: e.target.value })} placeholder="z.B. 80" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hüfte (cm)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.hips} onChange={(e) => setFormData({ ...formData, hips: e.target.value })} placeholder="z.B. 95" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bizeps (cm)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.biceps} onChange={(e) => setFormData({ ...formData, biceps: e.target.value })} placeholder="z.B. 35" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Oberschenkel (cm)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.thighs} onChange={(e) => setFormData({ ...formData, thighs: e.target.value })} placeholder="z.B. 60" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Waden (cm)
-                    </label>
-                    <Input type="number" step="0.1" value={formData.calves} onChange={(e) => setFormData({ ...formData, calves: e.target.value })} placeholder="z.B. 40" />
-                  </div>
+              <div className="grid grid-cols-2 gap-4" style={{ marginBottom: '1rem' }}>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>BRUST (CM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.chest}
+                    onChange={(e) => setFormData({ ...formData, chest: e.target.value })}
+                    style={TacticalHelpers.getInputStyles()}
+                  />
                 </div>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>TAILLE (CM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.waist}
+                    onChange={(e) => setFormData({ ...formData, waist: e.target.value })}
+                    style={TacticalHelpers.getInputStyles()}
+                  />
+                </div>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>HÜFTE (CM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.hips}
+                    onChange={(e) => setFormData({ ...formData, hips: e.target.value })}
+                    style={TacticalHelpers.getInputStyles()}
+                  />
+                </div>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>BIZEPS (CM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.biceps}
+                    onChange={(e) => setFormData({ ...formData, biceps: e.target.value })}
+                    style={TacticalHelpers.getInputStyles()}
+                  />
+                </div>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>OBERSCHENKEL (CM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.thighs}
+                    onChange={(e) => setFormData({ ...formData, thighs: e.target.value })}
+                    style={TacticalHelpers.getInputStyles()}
+                  />
+                </div>
+                <div>
+                  <label style={TacticalHelpers.getLabelStyles()}>WADEN (CM)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.calves}
+                    onChange={(e) => setFormData({ ...formData, calves: e.target.value })}
+                    style={TacticalHelpers.getInputStyles()}
+                  />
+                </div>
+              </div>
 
-                {/* Notizen */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notizen
-                  </label>
-                  <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={3} placeholder="Optionale Notizen..." />
-                </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>NOTIZEN</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Optionale Notizen..."
+                  style={{
+                    ...TacticalHelpers.getInputStyles(),
+                    resize: 'vertical',
+                    minHeight: '80px',
+                  }}
+                />
+              </div>
 
-                {/* Buttons */}
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="secondary" onClick={() => { setShowModal(false); setEditingId(null); setFormData(emptyForm); }}>Abbrechen</Button>
-                  <Button type="submit">{editingId ? 'Aktualisieren' : 'Erstellen'}</Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+              <div className="flex justify-end gap-2">
+                <TacticalButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingId(null);
+                    setFormData(emptyForm);
+                  }}
+                >
+                  ABBRECHEN
+                </TacticalButton>
+                <TacticalButton type="submit">{editingId ? 'UPDATE' : 'ERSTELLEN'}</TacticalButton>
+              </div>
+            </form>
+          </TacticalModal>
+        </div>
       </div>
-    </div>
     </AppLayout>
   );
 }

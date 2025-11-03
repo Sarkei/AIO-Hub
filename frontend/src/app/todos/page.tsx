@@ -1,376 +1,257 @@
-/**
- * Todos Page - Kanban Board
- */
+'use client';
 
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
-import axios from 'axios'
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import AppLayout from '@/components/AppLayout'
-import Button from '@/components/ui/Button'
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import AppLayout from '@/components/AppLayout';
+import { TacticalStyles, TacticalHelpers } from '@/components/tactical/TacticalStyles';
+import { TacticalHeader, TacticalSection, TacticalEmptyState, TacticalButton, TacticalModal } from '@/components/tactical/TacticalComponents';
 
 interface Todo {
-  id: string
-  user_id: string
-  title: string
-  description?: string
-  status: 'OPEN' | 'IN_PROGRESS' | 'DONE'
-  priority: number
-  due_date?: string
-  order: number
-  created_at: string
-  updated_at: string
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'DONE';
+  priority: number;
+  due_date?: string;
+  order: number;
+  created_at: string;
 }
 
-type TodoStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE'
+type TodoStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
 
-const STATUS_LABELS = {
-  OPEN: 'Offen',
-  IN_PROGRESS: 'In Bearbeitung',
-  DONE: 'Fertig'
-}
-
-const PRIORITY_COLORS = {
-  1: 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700',
-  2: 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700',
-  3: 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700'
-}
+const STATUS_LABELS = { OPEN: 'OFFEN', IN_PROGRESS: 'IN ARBEIT', DONE: 'FERTIG' };
+const STATUS_COLORS = { OPEN: 'accent', IN_PROGRESS: 'warning', DONE: 'forest' };
 
 export default function TodosPage() {
-  const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const [todos, setTodos] = useState<Todo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priority: 1,
-    dueDate: ''
-  })
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [formData, setFormData] = useState({ title: '', description: '', priority: 1, dueDate: '' });
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login')
-    }
-  }, [user, authLoading, router])
+    if (!authLoading && !user) router.push('/login');
+  }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user) {
-      fetchTodos()
-    }
-  }, [user])
+    if (user) fetchTodos();
+  }, [user]);
 
   const fetchTodos = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const res = await axios.get(`/api/todos`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setTodos(res.data.todos)
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`/api/todos`, { headers: { Authorization: `Bearer ${token}` } });
+      setTodos(res.data.todos);
     } catch (error) {
-      console.error('Failed to fetch todos:', error)
+      console.error('Failed to fetch todos:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCreateTodo = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      const token = localStorage.getItem('token')
-      await axios.post(
-        `/api/todos`,
-        {
-          ...formData,
-          dueDate: formData.dueDate || null
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
-      setShowModal(false)
-      setFormData({ title: '', description: '', priority: 1, dueDate: '' })
-      fetchTodos()
+      const token = localStorage.getItem('token');
+      await axios.post(`/api/todos`, { ...formData, dueDate: formData.dueDate || null }, { headers: { Authorization: `Bearer ${token}` } });
+      setShowModal(false);
+      setFormData({ title: '', description: '', priority: 1, dueDate: '' });
+      fetchTodos();
     } catch (error) {
-      console.error('Failed to create todo:', error)
+      console.error('Failed to create todo:', error);
     }
-  }
+  };
 
   const handleUpdateTodo = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingTodo) return
-
+    e.preventDefault();
+    if (!editingTodo) return;
     try {
-      const token = localStorage.getItem('token')
-      await axios.put(
-        `/api/todos/${editingTodo.id}`,
-        {
-          ...formData,
-          dueDate: formData.dueDate || null
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
-      setShowModal(false)
-      setEditingTodo(null)
-      setFormData({ title: '', description: '', priority: 1, dueDate: '' })
-      fetchTodos()
+      const token = localStorage.getItem('token');
+      await axios.put(`/api/todos/${editingTodo.id}`, { ...formData, dueDate: formData.dueDate || null }, { headers: { Authorization: `Bearer ${token}` } });
+      setShowModal(false);
+      setEditingTodo(null);
+      setFormData({ title: '', description: '', priority: 1, dueDate: '' });
+      fetchTodos();
     } catch (error) {
-      console.error('Failed to update todo:', error)
+      console.error('Failed to update todo:', error);
     }
-  }
+  };
 
   const handleDeleteTodo = async (id: string) => {
-    if (!confirm('Todo wirklich löschen?')) return
-
+    if (!confirm('Todo löschen?')) return;
     try {
-      const token = localStorage.getItem('token')
-      await axios.delete(`/api/todos/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      fetchTodos()
+      const token = localStorage.getItem('token');
+      await axios.delete(`/api/todos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      fetchTodos();
     } catch (error) {
-      console.error('Failed to delete todo:', error)
+      console.error('Failed to delete todo:', error);
     }
-  }
+  };
 
   const handleDragEnd = async (result: DropResult) => {
-    const { source, destination, draggableId } = result
-
-    if (!destination) return
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return
-
-    const newStatus = destination.droppableId as TodoStatus
-
+    const { destination, draggableId } = result;
+    if (!destination) return;
+    const newStatus = destination.droppableId as TodoStatus;
     try {
-      const token = localStorage.getItem('token')
-      await axios.patch(
-        `/api/todos/${draggableId}/move`,
-        {
-          status: newStatus,
-          order: destination.index
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
-      fetchTodos()
+      const token = localStorage.getItem('token');
+      await axios.put(`/api/todos/${draggableId}`, { status: newStatus }, { headers: { Authorization: `Bearer ${token}` } });
+      fetchTodos();
     } catch (error) {
-      console.error('Failed to move todo:', error)
+      console.error('Failed to update todo status:', error);
     }
-  }
+  };
 
-  const openCreateModal = () => {
-    setEditingTodo(null)
-    setFormData({ title: '', description: '', priority: 1, dueDate: '' })
-    setShowModal(true)
-  }
+  const getTodosByStatus = (status: TodoStatus) => todos.filter((t) => t.status === status).sort((a, b) => a.order - b.order);
 
-  const openEditModal = (todo: Todo) => {
-    setEditingTodo(todo)
-    setFormData({
-      title: todo.title,
-      description: todo.description || '',
-      priority: todo.priority,
-      dueDate: todo.due_date ? todo.due_date.split('T')[0] : ''
-    })
-    setShowModal(true)
-  }
+  const getPriorityLabel = (priority: number) => {
+    switch (priority) {
+      case 1: return 'NIEDRIG';
+      case 2: return 'MITTEL';
+      case 3: return 'HOCH';
+      default: return 'NIEDRIG';
+    }
+  };
 
-  const getTodosByStatus = (status: TodoStatus) => {
-    return todos
-      .filter((todo) => todo.status === status)
-      .sort((a, b) => a.order - b.order)
-  }
+  const getPriorityColor = (priority: number) => {
+    switch (priority) {
+      case 1: return TacticalStyles.colors.forest;
+      case 2: return TacticalStyles.colors.warning;
+      case 3: return TacticalStyles.colors.danger;
+      default: return TacticalStyles.colors.fgMuted;
+    }
+  };
 
-  if (authLoading || loading) {
+  if (loading || authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      <div style={{ minHeight: '100vh', backgroundColor: TacticalStyles.colors.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: TacticalStyles.colors.fgMuted }}>LADE TODOS...</p>
       </div>
-    )
+    );
   }
 
   return (
     <AppLayout>
-    <div>
-      {/* Header */}
-      <header className="card shadow-none border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">
-              ✅ Todos - Kanban Board
-            </h1>
-          </div>
-          <Button onClick={openCreateModal}>+ Neues Todo</Button>
-        </div>
-      </header>
+      <div style={{ padding: '2rem 1rem', backgroundColor: TacticalStyles.colors.bg, minHeight: 'calc(100vh - 4rem)' }}>
+        <div style={{ maxWidth: '90rem', margin: '0 auto' }}>
+          <TacticalHeader
+            title="TASK MANAGER"
+            subtitle="KANBAN BOARD"
+            actions={
+              <TacticalButton onClick={() => { setEditingTodo(null); setFormData({ title: '', description: '', priority: 1, dueDate: '' }); setShowModal(true); }}>+ TASK</TacticalButton>
+            }
+          />
 
-      {/* Kanban Board */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(['OPEN', 'IN_PROGRESS', 'DONE'] as TodoStatus[]).map((status) => (
-              <div key={status} className="card p-4">
-                <h2 className="text-lg font-semibold mb-4">
-                  {STATUS_LABELS[status]}
-                  <span className="ml-2 text-sm text-[rgb(var(--fg-subtle))]">
-                    ({getTodosByStatus(status).length})
-                  </span>
-                </h2>
-
-                <Droppable droppableId={status}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`space-y-3 min-h-[200px] ${
-                        snapshot.isDraggingOver ? 'bg-[rgb(var(--bg-elevated))]' : ''
-                      } rounded-lg p-2 transition-colors`}
-                    >
-                      {getTodosByStatus(status).map((todo, index) => (
-                        <Draggable key={todo.id} draggableId={todo.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`card p-4 border-2 ${
-                                PRIORITY_COLORS[todo.priority as 1 | 2 | 3]
-                              } ${
-                                snapshot.isDragging ? 'opacity-50 rotate-2' : ''
-                              } transition-all cursor-move`}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-semibold">
-                                  {todo.title}
-                                </h3>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => openEditModal(todo)}
-                                    className="btn btn-secondary px-2 py-1 text-xs"
+          {todos.length === 0 ? (
+            <TacticalEmptyState icon="✅" title="KEINE TASKS" description="Erstelle deinen ersten Task und verwalte deine Aufgaben im Kanban-Style." actionLabel="+ ERSTEN TASK ERSTELLEN" onAction={() => setShowModal(true)} />
+          ) : (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(['OPEN', 'IN_PROGRESS', 'DONE'] as TodoStatus[]).map((status) => {
+                  const statusTodos = getTodosByStatus(status);
+                  const borderColor = STATUS_COLORS[status];
+                  return (
+                    <Droppable key={status} droppableId={status}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          style={{
+                            backgroundColor: snapshot.isDraggingOver ? TacticalStyles.colors.cardHover : TacticalStyles.colors.card,
+                            border: `2px solid ${borderColor === 'accent' ? TacticalStyles.colors.accent : borderColor === 'warning' ? TacticalStyles.colors.warning : TacticalStyles.colors.forest}`,
+                            borderRadius: '0.5rem',
+                            padding: '1rem',
+                            minHeight: '500px',
+                          }}
+                        >
+                          <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: borderColor === 'accent' ? TacticalStyles.colors.accent : borderColor === 'warning' ? TacticalStyles.colors.warning : TacticalStyles.colors.forest, marginBottom: '1rem', textTransform: 'uppercase' }}>
+                            {STATUS_LABELS[status]} ({statusTodos.length})
+                          </h2>
+                          <div className="space-y-3">
+                            {statusTodos.map((todo, index) => (
+                              <Draggable key={todo.id} draggableId={todo.id} index={index}>
+                                {(provided) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    style={{
+                                      ...provided.draggableProps.style,
+                                      backgroundColor: TacticalStyles.colors.cardHover,
+                                      border: TacticalStyles.borders.default,
+                                      borderRadius: '0.375rem',
+                                      padding: '1rem',
+                                      cursor: 'grab',
+                                    }}
                                   >
-                                    ✏️
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteTodo(todo.id)}
-                                    className="btn btn-danger px-2 py-1 text-xs"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                              </div>
-                              {todo.description && (
-                                <p className="text-sm text-[rgb(var(--fg-muted))] mb-2">
-                                  {todo.description}
-                                </p>
-                              )}
-                              {todo.due_date && (
-                                <p className="text-xs text-[rgb(var(--fg-subtle))]">
-                                  📅 {new Date(todo.due_date).toLocaleDateString('de-DE')}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div style={{ fontWeight: '700', color: TacticalStyles.colors.fg }}>{todo.title}</div>
+                                      <div style={{ fontSize: '0.75rem', fontWeight: '700', color: getPriorityColor(todo.priority), padding: '0.125rem 0.5rem', border: `1px solid ${getPriorityColor(todo.priority)}`, borderRadius: '0.25rem' }}>
+                                        {getPriorityLabel(todo.priority)}
+                                      </div>
+                                    </div>
+                                    {todo.description && (
+                                      <p style={{ fontSize: '0.875rem', color: TacticalStyles.colors.fgMuted, marginBottom: '0.75rem' }}>{todo.description}</p>
+                                    )}
+                                    {todo.due_date && (
+                                      <p style={{ ...TacticalStyles.typography.bodyMono, fontSize: '0.75rem', color: TacticalStyles.colors.fgSubtle, marginBottom: '0.75rem' }}>
+                                        📅 {new Date(todo.due_date).toLocaleDateString('de-DE')}
+                                      </p>
+                                    )}
+                                    <div className="flex gap-2">
+                                      <TacticalButton onClick={() => { setEditingTodo(todo); setFormData({ title: todo.title, description: todo.description || '', priority: todo.priority, dueDate: todo.due_date || '' }); setShowModal(true); }}>EDIT</TacticalButton>
+                                      <TacticalButton variant="danger" onClick={() => handleDeleteTodo(todo.id)}>DEL</TacticalButton>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                          </div>
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        </DragDropContext>
-      </main>
+            </DragDropContext>
+          )}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              {editingTodo ? 'Todo bearbeiten' : 'Neues Todo'}
-            </h2>
+          <TacticalModal isOpen={showModal} onClose={() => { setShowModal(false); setEditingTodo(null); }} title={editingTodo ? 'TASK BEARBEITEN' : 'NEUER TASK'}>
             <form onSubmit={editingTodo ? handleUpdateTodo : handleCreateTodo}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Titel *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="input"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Beschreibung
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="textarea"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Priorität
-                  </label>
-                  <select
-                    className="select"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) })}
-                  >
-                    <option value={1}>Niedrig</option>
-                    <option value={2}>Mittel</option>
-                    <option value={3}>Hoch</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Fälligkeitsdatum
-                  </label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  />
-                </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>TITEL *</label>
+                <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required style={TacticalHelpers.getInputStyles()} />
               </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false)
-                    setEditingTodo(null)
-                  }}
-                  className="flex-1 btn btn-secondary"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 btn btn-primary"
-                >
-                  {editingTodo ? 'Speichern' : 'Erstellen'}
-                </button>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>BESCHREIBUNG</label>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} style={{ ...TacticalHelpers.getInputStyles(), resize: 'vertical', minHeight: '80px' }} />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>PRIORITÄT</label>
+                <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })} style={TacticalHelpers.getInputStyles()}>
+                  <option value={1}>NIEDRIG</option>
+                  <option value={2}>MITTEL</option>
+                  <option value={3}>HOCH</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>FÄLLIGKEITSDATUM</label>
+                <input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} style={TacticalHelpers.getInputStyles()} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <TacticalButton type="button" variant="secondary" onClick={() => { setShowModal(false); setEditingTodo(null); }}>ABBRECHEN</TacticalButton>
+                <TacticalButton type="submit">{editingTodo ? 'UPDATE' : 'ERSTELLEN'}</TacticalButton>
               </div>
             </form>
-          </div>
+          </TacticalModal>
         </div>
-      )}
-    </div>
+      </div>
     </AppLayout>
-  )
+  );
 }

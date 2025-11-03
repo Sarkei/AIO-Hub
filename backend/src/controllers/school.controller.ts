@@ -517,8 +517,12 @@ export class SchoolController {
   async getNotes(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
+      const username = req.user!.username;
       const schemaName = req.user!.schemaName;
       const { folderId } = req.query;
+
+      // Synchronisiere alle Notizen (Ordner + Markdown-Dateien)
+      await FilesystemService.syncAllNotesRecursively(userId, username, schemaName);
 
       let query = `
         SELECT * FROM "${schemaName}"."notes"
@@ -546,7 +550,7 @@ export class SchoolController {
   }
 
   /**
-   * Notiz erstellen (optional mit physischer Datei)
+   * Notiz erstellen (mit physischer Markdown-Datei)
    */
   async createNote(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -565,9 +569,9 @@ export class SchoolController {
       const { folderId, title, content, tags } = req.body;
 
       const id = uuidv4();
-      let filePath = null;
-
-      // Optional: Physische Datei erstellen
+      
+      // Bestimme Ordnerpfad
+      let folderPath = '';
       if (folderId) {
         const folder: any = await prisma.$queryRawUnsafe(`
           SELECT path FROM "${schemaName}"."note_folders"
@@ -575,35 +579,45 @@ export class SchoolController {
         `);
         
         if (folder && folder.length > 0) {
-          const fileName = `${title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß]/g, '_')}_${id}.md`;
-          filePath = path.join(folder[0].path, fileName);
-          const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, filePath);
-          
-          try {
-            // Stelle sicher dass der Ordner existiert
-            const dirPath = path.dirname(physicalPath);
-            if (!fs.existsSync(dirPath)) {
-              fs.mkdirSync(dirPath, { recursive: true });
-            }
-            fs.writeFileSync(physicalPath, content, 'utf8');
-            console.log('📄 Note file created:', physicalPath);
-          } catch (fsError) {
-            console.error('⚠️ Failed to create note file:', fsError);
-            filePath = null;
-          }
+          folderPath = folder[0].path;
         }
       }
 
+      // Erstelle Markdown-Datei im Dateisystem
+      const sanitizedTitle = title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß\s]/g, '_');
+      const fileName = `${sanitizedTitle}.md`;
+      const relativePath = folderPath ? path.join(folderPath, fileName) : fileName;
+      const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, relativePath);
+      
+      try {
+        // Stelle sicher dass der Ordner existiert
+        const dirPath = path.dirname(physicalPath);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+        
+        // Schreibe Markdown-Datei
+        fs.writeFileSync(physicalPath, content, 'utf8');
+        console.log('� Markdown note file created:', physicalPath);
+      } catch (fsError) {
+        console.error('⚠️ Failed to create markdown file:', fsError);
+        res.status(500).json({
+          error: 'Internal Server Error',
+          message: 'Failed to create note file on filesystem'
+        });
+        return;
+      }
+
+      // Erstelle DB-Eintrag
       await prisma.$queryRawUnsafe(`
         INSERT INTO "${schemaName}"."notes"
-        (id, user_id, folder_id, title, content, file_path, tags, created_at, updated_at)
+        (id, user_id, folder_id, title, content, tags, created_at, updated_at)
         VALUES (
           '${id}',
           '${userId}',
           ${folderId ? `'${folderId}'` : 'NULL'},
           '${title.replace(/'/g, "''")}',
           '${content.replace(/'/g, "''")}',
-          ${filePath ? `'${filePath.replace(/'/g, "''")}'` : 'NULL'},
           ${tags && tags.length > 0 ? `ARRAY[${tags.map((t: string) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]` : 'ARRAY[]::text[]'},
           NOW(),
           NOW()
@@ -976,18 +990,21 @@ export class SchoolController {
   }
 
   /**
-   * Notiz aktualisieren
+   * Notiz aktualisieren (inkl. Markdown-Datei)
    */
   async updateNote(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
+      const username = req.user!.username;
       const schemaName = req.user!.schemaName;
       const { id } = req.params;
       const { title, content, tags } = req.body;
 
       const noteRecord: any = await prisma.$queryRawUnsafe(`
-        SELECT * FROM "${schemaName}"."notes"
-        WHERE id = '${id}' AND user_id = '${userId}'
+        SELECT n.*, f.path as folder_path 
+        FROM "${schemaName}"."notes" n
+        LEFT JOIN "${schemaName}"."note_folders" f ON n.folder_id = f.id
+        WHERE n.id = '${id}' AND n.user_id = '${userId}'
       `);
 
       if (!noteRecord || noteRecord.length === 0) {
@@ -996,6 +1013,40 @@ export class SchoolController {
           message: 'Note not found'
         });
         return;
+      }
+
+      const note = noteRecord[0];
+      const oldTitle = note.title;
+      const folderPath = note.folder_path || '';
+
+      // Wenn Titel geändert wurde, benenne Datei um
+      if (title !== oldTitle) {
+        const oldFileName = `${oldTitle.replace(/[^a-zA-Z0-9-_äöüÄÖÜß\s]/g, '_')}.md`;
+        const newFileName = `${title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß\s]/g, '_')}.md`;
+        
+        const oldPath = path.join('/volume1/docker/AIO-Hub-Data', username, folderPath, oldFileName);
+        const newPath = path.join('/volume1/docker/AIO-Hub-Data', username, folderPath, newFileName);
+        
+        try {
+          if (fs.existsSync(oldPath)) {
+            fs.renameSync(oldPath, newPath);
+            console.log(`📝 Renamed markdown file: ${oldFileName} → ${newFileName}`);
+          }
+        } catch (fsError) {
+          console.error('⚠️ Failed to rename markdown file:', fsError);
+        }
+      }
+
+      // Aktualisiere Dateiinhalt
+      const sanitizedTitle = title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß\s]/g, '_');
+      const fileName = `${sanitizedTitle}.md`;
+      const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, folderPath, fileName);
+      
+      try {
+        fs.writeFileSync(physicalPath, content, 'utf8');
+        console.log('📝 Updated markdown file:', physicalPath);
+      } catch (fsError) {
+        console.error('⚠️ Failed to update markdown file:', fsError);
       }
 
       const tagsArray = tags ? `ARRAY[${tags.map((t: string) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]` : 'ARRAY[]::text[]';
@@ -1009,14 +1060,14 @@ export class SchoolController {
         WHERE id = '${id}'
       `);
 
-      const note: any = await prisma.$queryRawUnsafe(`
+      const updatedNote: any = await prisma.$queryRawUnsafe(`
         SELECT * FROM "${schemaName}"."notes"
         WHERE id = '${id}'
       `);
 
       res.status(200).json({
         message: 'Note updated successfully',
-        note: note[0]
+        note: updatedNote[0]
       });
     } catch (error) {
       console.error('Update note error:', error);
@@ -1028,17 +1079,20 @@ export class SchoolController {
   }
 
   /**
-   * Notiz löschen
+   * Notiz löschen (inkl. Markdown-Datei)
    */
   async deleteNote(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
+      const username = req.user!.username;
       const schemaName = req.user!.schemaName;
       const { id } = req.params;
 
       const noteRecord: any = await prisma.$queryRawUnsafe(`
-        SELECT * FROM "${schemaName}"."notes"
-        WHERE id = '${id}' AND user_id = '${userId}'
+        SELECT n.*, f.path as folder_path 
+        FROM "${schemaName}"."notes" n
+        LEFT JOIN "${schemaName}"."note_folders" f ON n.folder_id = f.id
+        WHERE n.id = '${id}' AND n.user_id = '${userId}'
       `);
 
       if (!noteRecord || noteRecord.length === 0) {
@@ -1049,6 +1103,23 @@ export class SchoolController {
         return;
       }
 
+      const note = noteRecord[0];
+      const folderPath = note.folder_path || '';
+      const sanitizedTitle = note.title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß\s]/g, '_');
+      const fileName = `${sanitizedTitle}.md`;
+      const physicalPath = path.join('/volume1/docker/AIO-Hub-Data', username, folderPath, fileName);
+
+      // Lösche physische Datei
+      try {
+        if (fs.existsSync(physicalPath)) {
+          fs.unlinkSync(physicalPath);
+          console.log('🗑️ Deleted markdown file:', physicalPath);
+        }
+      } catch (fsError) {
+        console.error('⚠️ Failed to delete markdown file:', fsError);
+      }
+
+      // Lösche DB-Eintrag
       await prisma.$queryRawUnsafe(`
         DELETE FROM "${schemaName}"."notes"
         WHERE id = '${id}'

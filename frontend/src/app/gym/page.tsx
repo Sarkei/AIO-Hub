@@ -3,12 +3,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import AppLayout from '@/components/AppLayout'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import Textarea from '@/components/ui/Textarea'
-import { Card } from '@/components/ui/Card'
+import AppLayout from '@/components/AppLayout';
+import { TacticalStyles, TacticalHelpers } from '@/components/tactical/TacticalStyles';
+import {
+  TacticalHeader,
+  TacticalSection,
+  TacticalStatCard,
+  TacticalEmptyState,
+  TacticalButton,
+  TacticalActionCard,
+  TacticalModal,
+} from '@/components/tactical/TacticalComponents';
 
+// ==================== TYPES ====================
 interface Set {
   id: string;
   exercise_id: string;
@@ -17,7 +24,6 @@ interface Set {
   rpe?: number;
   notes?: string;
   created_at: string;
-  updated_at: string;
 }
 
 interface Exercise {
@@ -27,7 +33,6 @@ interface Exercise {
   notes?: string;
   sets: Set[];
   created_at: string;
-  updated_at: string;
 }
 
 interface Workout {
@@ -37,7 +42,6 @@ interface Workout {
   notes?: string;
   exercises?: Exercise[];
   created_at: string;
-  updated_at: string;
 }
 
 interface SetFormData {
@@ -47,31 +51,34 @@ interface SetFormData {
   notes: string;
 }
 
-const emptySetForm: SetFormData = {
-  reps: '',
-  weight: '',
-  rpe: '',
-  notes: ''
-};
+const emptySetForm: SetFormData = { reps: '', weight: '', rpe: '', notes: '' };
 
+// ==================== MAIN COMPONENT ====================
 export default function GymPage() {
   const router = useRouter();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
-  const [showExerciseModal, setShowExerciseModal] = useState(false);
-  const [showSetModal, setShowSetModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'active'>('list');
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [activeExercise, setActiveExercise] = useState<Exercise | null>(null);
   const [timer, setTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'active'>('list');
-  
+
+  // Modal States
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [showSetModal, setShowSetModal] = useState(false);
+
   // Form States
-  const [workoutForm, setWorkoutForm] = useState({ name: '', date: new Date().toISOString().split('T')[0], notes: '' });
+  const [workoutForm, setWorkoutForm] = useState({
+    name: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
   const [exerciseName, setExerciseName] = useState('');
   const [setForm, setSetForm] = useState<SetFormData>(emptySetForm);
 
+  // ==================== FETCH DATA ====================
   const fetchWorkouts = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
@@ -81,7 +88,7 @@ export default function GymPage() {
       }
 
       const response = await axios.get('/api/workouts', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       setWorkouts(response.data.workouts || []);
@@ -91,35 +98,17 @@ export default function GymPage() {
         router.push('/login');
       } else {
         console.error('Error fetching workouts:', error);
-        alert('Fehler beim Laden der Workouts');
       }
     } finally {
       setLoading(false);
     }
   }, [router]);
 
-  useEffect(() => {
-    fetchWorkouts();
-  }, [fetchWorkouts]);
-
-  // Timer Effect
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (timerRunning) {
-      interval = setInterval(() => {
-        setTimer(prev => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timerRunning]);
-
-  
-
-  const fetchWorkoutDetails = async (workoutId: string) => {
+  const fetchWorkoutDetails = async (workoutId: string): Promise<Workout | null> => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`/api/workouts/${workoutId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       return response.data.workout;
     } catch (error) {
@@ -128,19 +117,41 @@ export default function GymPage() {
     }
   };
 
+  useEffect(() => {
+    fetchWorkouts();
+  }, [fetchWorkouts]);
+
+  // ==================== TIMER ====================
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  const formatTimer = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // ==================== HANDLERS ====================
   const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post('/api/workouts', workoutForm, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const newWorkout = response.data.workout;
       setShowWorkoutModal(false);
       setWorkoutForm({ name: '', date: new Date().toISOString().split('T')[0], notes: '' });
-      
-      // Direkt zum aktiven Workout wechseln
+
       const detailedWorkout = await fetchWorkoutDetails(newWorkout.id);
       if (detailedWorkout) {
         setActiveWorkout({ ...detailedWorkout, exercises: [] });
@@ -148,11 +159,21 @@ export default function GymPage() {
         setTimer(0);
         setTimerRunning(true);
       }
-      
+
       fetchWorkouts();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating workout:', error);
-      alert(error.response?.data?.message || 'Fehler beim Erstellen');
+      alert('Fehler beim Erstellen des Workouts');
+    }
+  };
+
+  const handleStartExistingWorkout = async (workout: Workout) => {
+    const detailed = await fetchWorkoutDetails(workout.id);
+    if (detailed) {
+      setActiveWorkout(detailed);
+      setViewMode('active');
+      setTimer(0);
+      setTimerRunning(true);
     }
   };
 
@@ -170,7 +191,7 @@ export default function GymPage() {
 
       const updated = await fetchWorkoutDetails(activeWorkout.id);
       if (updated) setActiveWorkout(updated);
-      
+
       setShowExerciseModal(false);
       setExerciseName('');
     } catch (error) {
@@ -185,9 +206,7 @@ export default function GymPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const payload: any = {
-        reps: parseInt(setForm.reps)
-      };
+      const payload: any = { reps: parseInt(setForm.reps) };
       if (setForm.weight) payload.weight = parseFloat(setForm.weight);
       if (setForm.rpe) payload.rpe = parseInt(setForm.rpe);
       if (setForm.notes) payload.notes = setForm.notes;
@@ -201,9 +220,11 @@ export default function GymPage() {
       const updated = await fetchWorkoutDetails(activeWorkout.id);
       if (updated) {
         setActiveWorkout(updated);
-        setActiveExercise(updated.exercises.find((e: Exercise) => e.id === activeExercise.id) || null);
+        setActiveExercise(
+          updated.exercises?.find((e: Exercise) => e.id === activeExercise.id) || null
+        );
       }
-      
+
       setShowSetModal(false);
       setSetForm(emptySetForm);
     } catch (error) {
@@ -217,16 +238,14 @@ export default function GymPage() {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(
-        `/api/workouts/${activeWorkout.id}/exercises/${exerciseId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.delete(`/api/workouts/${activeWorkout.id}/exercises/${exerciseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       const updated = await fetchWorkoutDetails(activeWorkout.id);
       if (updated) setActiveWorkout(updated);
     } catch (error) {
       console.error('Error deleting exercise:', error);
-      alert('Fehler beim Löschen');
     }
   };
 
@@ -244,12 +263,13 @@ export default function GymPage() {
       if (updated) {
         setActiveWorkout(updated);
         if (activeExercise) {
-          setActiveExercise(updated.exercises.find((e: Exercise) => e.id === activeExercise.id) || null);
+          setActiveExercise(
+            updated.exercises?.find((e: Exercise) => e.id === activeExercise.id) || null
+          );
         }
       }
     } catch (error) {
       console.error('Error deleting set:', error);
-      alert('Fehler beim Löschen');
     }
   };
 
@@ -260,293 +280,568 @@ export default function GymPage() {
     fetchWorkouts();
   };
 
-  const handleStartExistingWorkout = async (workout: Workout) => {
-    const detailed = await fetchWorkoutDetails(workout.id);
-    if (detailed) {
-      setActiveWorkout(detailed);
-      setViewMode('active');
-      setTimer(0);
-      setTimerRunning(true);
-    }
-  };
-
   const handleDeleteWorkout = async (workoutId: string) => {
     if (!confirm('Workout wirklich löschen?')) return;
 
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`/api/workouts/${workoutId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       fetchWorkouts();
     } catch (error) {
       console.error('Error deleting workout:', error);
-      alert('Fehler beim Löschen');
     }
   };
 
+  // ==================== CALCULATIONS ====================
   const calculateTotalVolume = (exercise: Exercise): number => {
     return exercise.sets.reduce((total, set) => {
       return total + (set.weight || 0) * set.reps;
     }, 0);
   };
 
-  const formatTimer = (seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const getRPEColor = (rpe?: number): string => {
-    if (!rpe) return 'text-gray-400';
-    if (rpe <= 3) return 'text-green-500';
-    if (rpe <= 6) return 'text-yellow-500';
-    if (rpe <= 8) return 'text-orange-500';
-    return 'text-red-500';
+    if (!rpe) return TacticalStyles.colors.fgSubtle;
+    if (rpe <= 3) return TacticalStyles.colors.success;
+    if (rpe <= 6) return TacticalStyles.colors.warning;
+    if (rpe <= 8) return TacticalStyles.colors.danger;
+    return TacticalStyles.colors.danger;
   };
 
+  // ==================== LOADING ====================
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Lade Gym-Daten...</p>
+      <div
+        style={{
+          minHeight: '100vh',
+          backgroundColor: TacticalStyles.colors.bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <p style={{ color: TacticalStyles.colors.fgMuted }}>LADE WORKOUT-DATEN...</p>
       </div>
     );
   }
 
-  // Active Workout View
+  // ==================== ACTIVE WORKOUT VIEW ====================
   if (viewMode === 'active' && activeWorkout) {
     return (
       <AppLayout>
-      <div className="py-8 px-4 bg-[rgb(var(--bg))]">
-        <div className="max-w-5xl mx-auto">
-          {/* Header mit Timer */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-lg p-6 mb-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold">{activeWorkout.name}</h1>
-                <p className="text-blue-100 mt-1">
-                  {new Date(activeWorkout.date).toLocaleDateString('de-DE')}
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-4xl font-mono font-bold">{formatTimer(timer)}</div>
-                <div className="flex gap-2 mt-2">
-                  <Button variant="secondary" size="sm" onClick={() => setTimerRunning(!timerRunning)}>
-                    {timerRunning ? '⏸ Pause' : '▶ Start'}
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => { setTimer(0); setTimerRunning(false); }}>
-                    🔄 Reset
-                  </Button>
+        <div
+          style={{
+            padding: '2rem 1rem',
+            backgroundColor: TacticalStyles.colors.bg,
+            minHeight: 'calc(100vh - 4rem)',
+          }}
+        >
+          <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+            {/* Header mit Timer */}
+            <div
+              style={{
+                backgroundColor: TacticalStyles.colors.card,
+                border: `2px solid ${TacticalStyles.colors.accent}`,
+                borderRadius: '0.5rem',
+                padding: '2rem',
+                marginBottom: '2rem',
+                boxShadow: TacticalStyles.effects.glow,
+              }}
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1
+                    style={{
+                      ...TacticalStyles.typography.h1,
+                      color: TacticalStyles.colors.accent,
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    {activeWorkout.name}
+                  </h1>
+                  <p style={{ ...TacticalStyles.typography.bodyMono, color: TacticalStyles.colors.fgMuted }}>
+                    {new Date(activeWorkout.date).toLocaleDateString('de-DE')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div
+                    style={{
+                      fontSize: '3rem',
+                      fontFamily: 'monospace',
+                      fontWeight: '900',
+                      color: TacticalStyles.colors.accent,
+                      letterSpacing: '0.1em',
+                    }}
+                  >
+                    {formatTimer(timer)}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <TacticalButton
+                      variant="secondary"
+                      onClick={() => setTimerRunning(!timerRunning)}
+                    >
+                      {timerRunning ? '⏸ PAUSE' : '▶ START'}
+                    </TacticalButton>
+                    <TacticalButton
+                      variant="secondary"
+                      onClick={() => {
+                        setTimer(0);
+                        setTimerRunning(false);
+                      }}
+                    >
+                      🔄 RESET
+                    </TacticalButton>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Exercises */}
+            {activeWorkout.exercises && activeWorkout.exercises.length > 0 ? (
+              <div className="space-y-4">
+                {activeWorkout.exercises.map((exercise) => (
+                  <div
+                    key={exercise.id}
+                    style={{
+                      backgroundColor: TacticalStyles.colors.card,
+                      border: TacticalStyles.borders.default,
+                      borderRadius: '0.5rem',
+                      padding: '1.5rem',
+                    }}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3
+                          style={{
+                            fontSize: '1.25rem',
+                            fontWeight: '700',
+                            color: TacticalStyles.colors.fg,
+                            marginBottom: '0.5rem',
+                          }}
+                        >
+                          {exercise.name}
+                        </h3>
+                        <p
+                          style={{
+                            ...TacticalStyles.typography.bodyMono,
+                            color: TacticalStyles.colors.accent,
+                          }}
+                        >
+                          VOLUMEN: {calculateTotalVolume(exercise).toFixed(1)} KG
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <TacticalButton
+                          onClick={() => {
+                            setActiveExercise(exercise);
+                            setShowSetModal(true);
+                          }}
+                        >
+                          + SATZ
+                        </TacticalButton>
+                        <TacticalButton
+                          variant="danger"
+                          onClick={() => handleDeleteExercise(exercise.id)}
+                        >
+                          🗑
+                        </TacticalButton>
+                      </div>
+                    </div>
+
+                    {/* Sets Table */}
+                    {exercise.sets.length > 0 ? (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: TacticalStyles.colors.cardHover }}>
+                              <th style={TacticalHelpers.getTableHeader()}>SATZ</th>
+                              <th style={TacticalHelpers.getTableHeader()}>WDH</th>
+                              <th style={TacticalHelpers.getTableHeader()}>GEWICHT</th>
+                              <th style={TacticalHelpers.getTableHeader()}>RPE</th>
+                              <th style={TacticalHelpers.getTableHeader()}>VOLUMEN</th>
+                              <th style={TacticalHelpers.getTableHeader()}>AKTION</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {exercise.sets.map((set, idx) => (
+                              <tr
+                                key={set.id}
+                                style={{
+                                  borderBottom: TacticalStyles.borders.subtle,
+                                }}
+                              >
+                                <td style={TacticalHelpers.getTableCell()}>{idx + 1}</td>
+                                <td style={TacticalHelpers.getTableCell()}>{set.reps}</td>
+                                <td style={TacticalHelpers.getTableCell()}>
+                                  {set.weight ? `${set.weight} KG` : '-'}
+                                </td>
+                                <td
+                                  style={{
+                                    ...TacticalHelpers.getTableCell(),
+                                    color: getRPEColor(set.rpe),
+                                    fontWeight: '700',
+                                  }}
+                                >
+                                  {set.rpe || '-'}
+                                </td>
+                                <td style={TacticalHelpers.getTableCell()}>
+                                  {set.weight ? `${(set.weight * set.reps).toFixed(1)} KG` : '-'}
+                                </td>
+                                <td style={TacticalHelpers.getTableCell()}>
+                                  <TacticalButton
+                                    variant="danger"
+                                    onClick={() => handleDeleteSet(exercise.id, set.id)}
+                                  >
+                                    LÖSCHEN
+                                  </TacticalButton>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p
+                        style={{
+                          textAlign: 'center',
+                          padding: '2rem',
+                          color: TacticalStyles.colors.fgSubtle,
+                        }}
+                      >
+                        NOCH KEINE SÄTZE
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <TacticalEmptyState
+                icon="🏋️"
+                title="KEINE ÜBUNGEN"
+                description="Füge deine erste Übung hinzu um mit dem Training zu beginnen."
+                actionLabel="+ ÜBUNG HINZUFÜGEN"
+                onAction={() => setShowExerciseModal(true)}
+              />
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 mt-6">
+              <TacticalButton fullWidth onClick={() => setShowExerciseModal(true)}>
+                + ÜBUNG HINZUFÜGEN
+              </TacticalButton>
+              <TacticalButton variant="secondary" onClick={handleFinishWorkout}>
+                ✓ WORKOUT BEENDEN
+              </TacticalButton>
+            </div>
           </div>
 
-          {/* Exercises */}
-          <div className="space-y-4">
-            {activeWorkout.exercises?.map((exercise) => (
-              <Card key={exercise.id} className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold">{exercise.name}</h3>
-                    <p className="text-sm text-[rgb(var(--fg-subtle))]">
-                      Volumen: {calculateTotalVolume(exercise).toFixed(1)} kg
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => { setActiveExercise(exercise); setShowSetModal(true); }}>+ Satz</Button>
-                    <Button size="sm" variant="danger" onClick={() => handleDeleteExercise(exercise.id)}>🗑</Button>
-                  </div>
-                </div>
+          {/* Exercise Modal */}
+          <TacticalModal
+            isOpen={showExerciseModal}
+            onClose={() => {
+              setShowExerciseModal(false);
+              setExerciseName('');
+            }}
+            title="ÜBUNG HINZUFÜGEN"
+          >
+            <form onSubmit={handleAddExercise}>
+              <input
+                type="text"
+                value={exerciseName}
+                onChange={(e) => setExerciseName(e.target.value)}
+                placeholder="z.B. Bankdrücken"
+                required
+                style={{
+                  ...TacticalHelpers.getInputStyles(),
+                  marginBottom: '1.5rem',
+                }}
+              />
+              <div className="flex justify-end gap-2">
+                <TacticalButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowExerciseModal(false);
+                    setExerciseName('');
+                  }}
+                >
+                  ABBRECHEN
+                </TacticalButton>
+                <TacticalButton type="submit">HINZUFÜGEN</TacticalButton>
+              </div>
+            </form>
+          </TacticalModal>
 
-                {/* Sets Table */}
-                {exercise.sets.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-[rgb(var(--bg-elevated))]">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-[rgb(var(--fg-subtle))]">Satz</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Wdh.</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Gewicht</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">RPE</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Volumen</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Aktion</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
-                        {exercise.sets.map((set, idx) => (
-                          <tr key={set.id} className="hover:bg-[rgb(var(--bg-elevated))]">
-                            <td className="px-4 py-3 text-sm font-medium">{idx + 1}</td>
-                            <td className="px-4 py-3 text-sm text-[rgb(var(--fg-muted))]">{set.reps}</td>
-                            <td className="px-4 py-3 text-sm text-[rgb(var(--fg-muted))]">
-                              {set.weight ? `${set.weight} kg` : '-'}
-                            </td>
-                            <td className={`px-4 py-3 text-sm font-medium ${getRPEColor(set.rpe)}`}>
-                              {set.rpe || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-[rgb(var(--fg-muted))]">
-                              {set.weight ? `${(set.weight * set.reps).toFixed(1)} kg` : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <Button size="sm" variant="danger" onClick={() => handleDeleteSet(exercise.id, set.id)}>Löschen</Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-[rgb(var(--fg-subtle))] text-center py-4">Noch keine Sätze</p>
-                )}
-              </Card>
-            ))}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 mt-6">
-            <Button className="flex-1" onClick={() => setShowExerciseModal(true)}>+ Übung hinzufügen</Button>
-            <Button variant="secondary" onClick={handleFinishWorkout}>✓ Workout beenden</Button>
-          </div>
+          {/* Set Modal */}
+          <TacticalModal
+            isOpen={showSetModal}
+            onClose={() => {
+              setShowSetModal(false);
+              setSetForm(emptySetForm);
+            }}
+            title={`SATZ HINZUFÜGEN - ${activeExercise?.name || ''}`}
+          >
+            <form onSubmit={handleAddSet}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>WIEDERHOLUNGEN *</label>
+                <input
+                  type="number"
+                  value={setForm.reps}
+                  onChange={(e) => setSetForm({ ...setForm, reps: e.target.value })}
+                  placeholder="z.B. 10"
+                  required
+                  style={TacticalHelpers.getInputStyles()}
+                />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>GEWICHT (KG)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={setForm.weight}
+                  onChange={(e) => setSetForm({ ...setForm, weight: e.target.value })}
+                  placeholder="z.B. 80"
+                  style={TacticalHelpers.getInputStyles()}
+                />
+              </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>RPE (1-10)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={setForm.rpe}
+                  onChange={(e) => setSetForm({ ...setForm, rpe: e.target.value })}
+                  placeholder="1 = leicht, 10 = maximal"
+                  style={TacticalHelpers.getInputStyles()}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <TacticalButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowSetModal(false);
+                    setSetForm(emptySetForm);
+                  }}
+                >
+                  ABBRECHEN
+                </TacticalButton>
+                <TacticalButton type="submit">HINZUFÜGEN</TacticalButton>
+              </div>
+            </form>
+          </TacticalModal>
         </div>
-
-        {/* Exercise Modal */}
-        {showExerciseModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="exercise-modal-title">
-              <h2 id="exercise-modal-title" className="text-2xl font-bold mb-4">Übung hinzufügen</h2>
-              <form onSubmit={handleAddExercise}>
-                <Input type="text" value={exerciseName} onChange={(e) => setExerciseName(e.target.value)} className="mb-4" placeholder="z.B. Bankdrücken" required />
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="secondary" onClick={() => { setShowExerciseModal(false); setExerciseName(''); }}>Abbrechen</Button>
-                  <Button type="submit">Hinzufügen</Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Set Modal */}
-        {showSetModal && activeExercise && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="set-modal-title">
-              <h2 id="set-modal-title" className="text-2xl font-bold mb-4">Satz hinzufügen - {activeExercise.name}</h2>
-              <form onSubmit={handleAddSet}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Wiederholungen *
-                  </label>
-                  <Input type="number" value={setForm.reps} onChange={(e) => setSetForm({ ...setForm, reps: e.target.value })} placeholder="z.B. 10" required />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gewicht (kg)
-                  </label>
-                  <Input type="number" step="0.5" value={setForm.weight} onChange={(e) => setSetForm({ ...setForm, weight: e.target.value })} placeholder="z.B. 80" />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    RPE (1-10) - Rate of Perceived Exertion
-                  </label>
-                  <Input type="number" min={1} max={10} value={setForm.rpe} onChange={(e) => setSetForm({ ...setForm, rpe: e.target.value })} placeholder="1 = sehr leicht, 10 = maximale Anstrengung" />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="secondary" onClick={() => { setShowSetModal(false); setSetForm(emptySetForm); }}>Abbrechen</Button>
-                  <Button type="submit">Hinzufügen</Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
       </AppLayout>
     );
   }
 
-  // List View
+  // ==================== LIST VIEW ====================
   return (
     <AppLayout>
-    <div className="py-8 px-4 bg-[rgb(var(--bg))]">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">💪 Gym Tracker</h1>
-            <p className="text-gray-600 mt-1">Tracke deine Workouts</p>
-          </div>
-          <Button onClick={() => setShowWorkoutModal(true)}>+ Neues Workout</Button>
-        </div>
+      <div
+        style={{
+          padding: '2rem 1rem',
+          backgroundColor: TacticalStyles.colors.bg,
+          minHeight: 'calc(100vh - 4rem)',
+        }}
+      >
+        <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+          <TacticalHeader
+            title="GYM TRACKER"
+            subtitle="TRAININGSÜBERSICHT & WORKOUT-VERWALTUNG"
+            actions={
+              <TacticalButton onClick={() => setShowWorkoutModal(true)}>
+                + NEUES WORKOUT
+              </TacticalButton>
+            }
+          />
 
-        {/* Workouts List */}
-        <Card className="overflow-hidden">
-          {workouts.length === 0 ? (
-            <div className="p-8 text-center text-[rgb(var(--fg-subtle))]">
-              Noch keine Workouts. Erstelle dein erstes Workout!
+          {/* Quick Actions */}
+          <TacticalSection title="SCHNELLZUGRIFF" markerColor="accent">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <TacticalActionCard
+                icon="⚡"
+                title="QUICK START"
+                description="Starte ein leeres Workout"
+                onClick={() => setShowWorkoutModal(true)}
+              />
+              <TacticalActionCard
+                icon="📋"
+                title="TEMPLATES"
+                description="Workout-Vorlagen (bald verfügbar)"
+                onClick={() => alert('Feature kommt bald!')}
+              />
+              <TacticalActionCard
+                icon="📊"
+                title="STATISTIKEN"
+                description="Trainingsfortschritt anzeigen"
+                onClick={() => router.push('/body-metrics')}
+              />
             </div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: 'rgb(var(--card-border))' }}>
-              {workouts.map((workout) => (
-                <div key={workout.id} className="p-6 hover:bg-[rgb(var(--bg-elevated))] transition">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold">{workout.name}</h3>
-                      <p className="text-sm text-[rgb(var(--fg-subtle))] mt-1">
-                        {new Date(workout.date).toLocaleDateString('de-DE', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                      {workout.notes && (
-                        <p className="text-sm text-[rgb(var(--fg-muted))] mt-2">{workout.notes}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => handleStartExistingWorkout(workout)}>Starten</Button>
-                      <Button variant="danger" onClick={() => handleDeleteWorkout(workout.id)}>Löschen</Button>
+          </TacticalSection>
+
+          {/* Workouts List */}
+          <TacticalSection title="WORKOUT-HISTORIE" markerColor="forest">
+            {workouts.length === 0 ? (
+              <TacticalEmptyState
+                icon="🏋️"
+                title="KEINE WORKOUTS"
+                description="Du hast noch keine Workouts erstellt. Starte jetzt dein erstes Training und tracke deinen Fortschritt!"
+                actionLabel="+ ERSTES WORKOUT ERSTELLEN"
+                onAction={() => setShowWorkoutModal(true)}
+              />
+            ) : (
+              <div className="space-y-3">
+                {workouts.map((workout) => (
+                  <div
+                    key={workout.id}
+                    style={{
+                      backgroundColor: TacticalStyles.colors.card,
+                      border: TacticalStyles.borders.default,
+                      borderRadius: '0.5rem',
+                      padding: '1.5rem',
+                      transition: TacticalStyles.transitions.base,
+                    }}
+                    className="hover:scale-[1.01]"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = TacticalStyles.colors.cardHover;
+                      e.currentTarget.style.boxShadow = TacticalStyles.effects.shadow;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = TacticalStyles.colors.card;
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3
+                          style={{
+                            fontSize: '1.25rem',
+                            fontWeight: '700',
+                            color: TacticalStyles.colors.fg,
+                            marginBottom: '0.5rem',
+                          }}
+                        >
+                          {workout.name}
+                        </h3>
+                        <p
+                          style={{
+                            ...TacticalStyles.typography.bodyMono,
+                            color: TacticalStyles.colors.accent,
+                          }}
+                        >
+                          {new Date(workout.date).toLocaleDateString('de-DE', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                        {workout.notes && (
+                          <p
+                            style={{
+                              marginTop: '0.5rem',
+                              color: TacticalStyles.colors.fgMuted,
+                              fontSize: '0.875rem',
+                            }}
+                          >
+                            {workout.notes}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <TacticalButton
+                          variant="secondary"
+                          onClick={() => handleStartExistingWorkout(workout)}
+                        >
+                          STARTEN
+                        </TacticalButton>
+                        <TacticalButton
+                          variant="danger"
+                          onClick={() => handleDeleteWorkout(workout.id)}
+                        >
+                          LÖSCHEN
+                        </TacticalButton>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+                ))}
+              </div>
+            )}
+          </TacticalSection>
 
-        {/* Workout Modal */}
-        {showWorkoutModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="card max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="workout-modal-title">
-              <h2 id="workout-modal-title" className="text-2xl font-bold mb-4">Neues Workout</h2>
-              <form onSubmit={handleCreateWorkout}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name *
-                  </label>
-                  <Input type="text" value={workoutForm.name} onChange={(e) => setWorkoutForm({ ...workoutForm, name: e.target.value })} placeholder="z.B. Push Day" required />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Datum *
-                  </label>
-                  <Input type="date" value={workoutForm.date} onChange={(e) => setWorkoutForm({ ...workoutForm, date: e.target.value })} required />
-                </div>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notizen
-                  </label>
-                  <Textarea value={workoutForm.notes} onChange={(e) => setWorkoutForm({ ...workoutForm, notes: e.target.value })} rows={3} placeholder="Optionale Notizen..." />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="secondary" onClick={() => { setShowWorkoutModal(false); setWorkoutForm({ name: '', date: new Date().toISOString().split('T')[0], notes: '' }); }}>Abbrechen</Button>
-                  <Button type="submit">Erstellen & Starten</Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+          {/* Workout Modal */}
+          <TacticalModal
+            isOpen={showWorkoutModal}
+            onClose={() => {
+              setShowWorkoutModal(false);
+              setWorkoutForm({
+                name: '',
+                date: new Date().toISOString().split('T')[0],
+                notes: '',
+              });
+            }}
+            title="NEUES WORKOUT"
+          >
+            <form onSubmit={handleCreateWorkout}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>NAME *</label>
+                <input
+                  type="text"
+                  value={workoutForm.name}
+                  onChange={(e) => setWorkoutForm({ ...workoutForm, name: e.target.value })}
+                  placeholder="z.B. Push Day"
+                  required
+                  style={TacticalHelpers.getInputStyles()}
+                />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>DATUM *</label>
+                <input
+                  type="date"
+                  value={workoutForm.date}
+                  onChange={(e) => setWorkoutForm({ ...workoutForm, date: e.target.value })}
+                  required
+                  style={TacticalHelpers.getInputStyles()}
+                />
+              </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={TacticalHelpers.getLabelStyles()}>NOTIZEN</label>
+                <textarea
+                  value={workoutForm.notes}
+                  onChange={(e) => setWorkoutForm({ ...workoutForm, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Optionale Notizen..."
+                  style={{
+                    ...TacticalHelpers.getInputStyles(),
+                    resize: 'vertical',
+                    minHeight: '80px',
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <TacticalButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowWorkoutModal(false);
+                    setWorkoutForm({
+                      name: '',
+                      date: new Date().toISOString().split('T')[0],
+                      notes: '',
+                    });
+                  }}
+                >
+                  ABBRECHEN
+                </TacticalButton>
+                <TacticalButton type="submit">ERSTELLEN & STARTEN</TacticalButton>
+              </div>
+            </form>
+          </TacticalModal>
+        </div>
       </div>
-    </div>
     </AppLayout>
   );
 }

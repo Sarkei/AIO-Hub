@@ -1,14 +1,29 @@
 'use client'
 
-import Sidebar from './Sidebar'
+import { useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const mainRef = useRef<HTMLElement>(null)
+  const pathname = usePathname()
+
+  // Scroll to top of main content on route change
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0
+    }
+  }, [pathname])
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex">
-      <Sidebar />
-      <main className="flex-1 min-w-0">
-        {children}
-      </main>
-    </div>
+    <main 
+      ref={mainRef}
+      className="flex-1 min-w-0 overflow-auto"
+      style={{
+        height: '100vh',
+        position: 'relative'
+      }}
+    >
+      {children}
+    </main>
   )
 }

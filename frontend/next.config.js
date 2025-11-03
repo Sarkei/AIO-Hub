@@ -20,7 +20,10 @@ const nextConfig = {
     buildActivityPosition: 'bottom-right',
   },
   
-  // Hinweis: 'experimental.allowedDevOrigins' ist entfernt, da nicht unterstützt
+  // Experimental features für bessere Performance
+  experimental: {
+    optimizePackageImports: ['@/components', '@/context'],
+  },
 }
 
 module.exports = nextConfig

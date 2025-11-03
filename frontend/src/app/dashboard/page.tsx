@@ -1,308 +1,472 @@
-/**
- * Dashboard Page - Modern Hub View
- * Inspired by: Notion, Linear, ClickUp, Apple Fitness
- */
+'use client';
 
-'use client'
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import AppLayout from '@/components/AppLayout';
+import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 
-import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import AppLayout from '@/components/AppLayout'
-import Card from '@/components/ui/Card'
+interface DashboardStats {
+  fitness: {
+    currentWeight?: number;
+    targetWeight?: number;
+    bodyFat?: number;
+    weeklyWorkouts: number;
+    totalSets: number;
+    avgCalories: number;
+  };
+  productivity: {
+    openTodos: number;
+    completedToday: number;
+    upcomingEvents: number;
+  };
+  school: {
+    averageGrade: number;
+    pendingTasks: number;
+  };
+}
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth()
-  const router = useRouter()
+  const router = useRouter();
+  const [stats, setStats] = useState<DashboardStats>({
+    fitness: { weeklyWorkouts: 0, totalSets: 0, avgCalories: 0 },
+    productivity: { openTodos: 0, completedToday: 0, upcomingEvents: 0 },
+    school: { averageGrade: 0, pendingTasks: 0 }
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
+    fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      // Fetch all dashboard data in parallel
+      const [bodyMetricsRes, workoutsRes, nutritionRes, todosRes, eventsRes, schoolRes] = await Promise.all([
+        axios.get('http://localhost:4000/api/bodymetrics?limit=1', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { metrics: [] } })),
+        axios.get('http://localhost:4000/api/workouts?limit=7', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { workouts: [] } })),
+        axios.get('http://localhost:4000/api/nutrition/logs?days=7', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { logs: [] } })),
+        axios.get('http://localhost:4000/api/todos?status=OPEN', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { todos: [] } })),
+        axios.get('http://localhost:4000/api/events?upcoming=true', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { events: [] } })),
+        axios.get('http://localhost:4000/api/school/todos', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { todos: [] } }))
+      ]);
+
+      const latestMetric = bodyMetricsRes.data.metrics?.[0];
+      const workouts = workoutsRes.data.workouts || [];
+      const nutritionLogs = nutritionRes.data.logs || [];
+      const todos = todosRes.data.todos || [];
+      const events = eventsRes.data.events || [];
+      const schoolTodos = schoolRes.data.todos || [];
+
+      // Calculate total sets from workouts
+      const totalSets = workouts.reduce((acc: number, workout: any) => {
+        return acc + (workout.exercises?.reduce((sum: number, ex: any) => sum + (ex.sets?.length || 0), 0) || 0);
+      }, 0);
+
+      // Calculate average calories
+      const avgCalories = nutritionLogs.length > 0
+        ? Math.round(nutritionLogs.reduce((sum: number, log: any) => sum + log.calories, 0) / nutritionLogs.length)
+        : 0;
+
+      setStats({
+        fitness: {
+          currentWeight: latestMetric?.weight,
+          bodyFat: latestMetric?.body_fat,
+          weeklyWorkouts: workouts.length,
+          totalSets,
+          avgCalories
+        },
+        productivity: {
+          openTodos: todos.length,
+          completedToday: todos.filter((t: any) => {
+            const today = new Date().toDateString();
+            return t.status === 'DONE' && new Date(t.updated_at).toDateString() === today;
+          }).length,
+          upcomingEvents: events.length
+        },
+        school: {
+          averageGrade: 0,
+          pendingTasks: schoolTodos.length
+        }
+      });
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setLoading(false);
     }
-  }, [user, loading, router])
+  };
 
-  if (loading || !user) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" 
-             style={{ borderColor: 'rgb(var(--accent))' }}></div>
-      </div>
-    )
+      <AppLayout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-lg" style={{ color: 'rgb(var(--fg-muted))' }}>
+            Lädt Dashboard...
+          </div>
+        </div>
+      </AppLayout>
+    );
   }
-
-  // Tageszeit-basierte Begrüßung
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend'
 
   return (
     <AppLayout>
-      <div className="min-h-screen" style={{ backgroundColor: 'rgb(var(--bg))' }}>
-        {/* Header */}
-        <div className="px-8 py-6 border-b" style={{ 
-          backgroundColor: 'rgb(var(--bg-elevated))',
-          borderColor: 'rgb(var(--card-border))'
-        }}>
-          <h1 className="text-3xl font-bold mb-1" style={{ color: 'rgb(var(--fg))' }}>
-            {greeting}, {user.username}! 👋
-          </h1>
-          <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-            Hier ist deine Übersicht für heute
-          </p>
+      <div className="p-8 max-w-[1600px] mx-auto">
+        {/* Hero Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 
+                className="text-5xl font-black mb-2 tracking-tight" 
+                style={{ 
+                  color: 'rgb(var(--fg))',
+                  textShadow: '0 0 40px rgba(132, 204, 22, 0.2)'
+                }}
+              >
+                TACTICAL HUB
+              </h1>
+              <p className="text-sm font-mono uppercase tracking-wider" style={{ color: 'rgb(var(--accent))' }}>
+                System Status: Operational
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-black mb-1" style={{ color: 'rgb(var(--accent))' }}>
+                {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+              </div>
+              <div className="text-sm font-mono" style={{ color: 'rgb(var(--fg-muted))' }}>
+                {new Date().toLocaleDateString('de-DE', { weekday: 'long' }).toUpperCase()}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-8 py-8">
-          {/* Quick Stats Row */}
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--fg))' }}>
-              📊 Auf einen Blick
+        {/* FITNESS COMMAND CENTER */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-black uppercase tracking-tight" style={{ color: 'rgb(var(--fg))' }}>
+              <span style={{ color: 'rgb(var(--accent))' }}>█</span> FITNESS METRICS
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <QuickStatCard
-                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>}
-                label="Offene Todos"
-                value="4"
-                subtext="2 heute fällig"
-                color="accent"
-              />
-              <QuickStatCard
-                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>}
-                label="Nächster Termin"
-                value="14:30"
-                subtext="Team Meeting"
-                color="success"
-              />
-              <QuickStatCard
-                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>}
-                label="Workout Streak"
-                value="5 Tage"
-                subtext="Weiter so!"
-                color="warning"
-              />
-              <QuickStatCard
-                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>}
-                label="Kalorien heute"
-                value="1.850"
-                subtext="von 2.500 kcal"
-                color="accent"
-              />
-            </div>
+            <Button 
+              onClick={() => router.push('/gym')}
+              style={{
+                backgroundColor: 'rgb(var(--accent))',
+                color: 'rgb(var(--accent-fg))',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                fontSize: '0.75rem',
+                letterSpacing: '0.05em'
+              }}
+            >
+              → START WORKOUT
+            </Button>
           </div>
 
-          {/* Module Grid */}
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--fg))' }}>
-              🏠 Deine Module
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <ModuleCard
-                icon="✅"
-                title="Todos"
-                description="Kanban-Board"
-                badge="4 offen"
-                link="/todos"
-              />
-              <ModuleCard
-                icon="📅"
-                title="Termine"
-                description="Terminplaner"
-                badge="2 heute"
-                link="/events"
-              />
-              <ModuleCard
-                icon="🗓️"
-                title="Kalender"
-                description="Monatsansicht"
-                badge=""
-                link="/calendar"
-              />
-              <ModuleCard
-                icon="💪"
-                title="Körperdaten"
-                description="Body Metrics"
-                badge="Letzter Eintrag: Heute"
-                link="/body-metrics"
-              />
-              <ModuleCard
-                icon="🏋️"
-                title="Gym"
-                description="Workout Tracker"
-                badge="5 Tage Streak"
-                link="/gym"
-              />
-              <ModuleCard
-                icon="🍎"
-                title="Ernährung"
-                description="Makro-Tracker"
-                badge="1.850 / 2.500 kcal"
-                link="/nutrition"
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Weight */}
+            <Card 
+              className="relative overflow-hidden"
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))',
+                borderLeft: '4px solid rgb(var(--accent))'
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="text-xs font-mono uppercase mb-2" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  Current Weight
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black" style={{ color: 'rgb(var(--fg))' }}>
+                    {stats.fitness.currentWeight || '--'}
+                  </span>
+                  <span className="text-lg font-bold" style={{ color: 'rgb(var(--fg-muted))' }}>kg</span>
+                </div>
+                {stats.fitness.bodyFat && (
+                  <div className="mt-2 text-sm" style={{ color: 'rgb(var(--accent))' }}>
+                    {stats.fitness.bodyFat}% BF
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Weekly Workouts */}
+            <Card 
+              className="relative overflow-hidden"
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))',
+                borderLeft: '4px solid rgb(var(--forest))'
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="text-xs font-mono uppercase mb-2" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  Workouts (7d)
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black" style={{ color: 'rgb(var(--fg))' }}>
+                    {stats.fitness.weeklyWorkouts}
+                  </span>
+                  <span className="text-lg font-bold" style={{ color: 'rgb(var(--fg-muted))' }}>sessions</span>
+                </div>
+                <div className="mt-2">
+                  <div 
+                    className="h-1 rounded-full" 
+                    style={{ backgroundColor: 'rgb(var(--card-border))' }}
+                  >
+                    <div 
+                      className="h-full rounded-full" 
+                      style={{ 
+                        backgroundColor: 'rgb(var(--forest))',
+                        width: `${Math.min((stats.fitness.weeklyWorkouts / 5) * 100, 100)}%`,
+                        boxShadow: 'var(--glow-success)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Total Sets */}
+            <Card 
+              className="relative overflow-hidden"
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))',
+                borderLeft: '4px solid rgb(var(--olive))'
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="text-xs font-mono uppercase mb-2" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  Total Sets (7d)
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black" style={{ color: 'rgb(var(--fg))' }}>
+                    {stats.fitness.totalSets}
+                  </span>
+                  <span className="text-lg font-bold" style={{ color: 'rgb(var(--fg-muted))' }}>sets</span>
+                </div>
+                <div className="mt-2 text-sm" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  ↑ Volume tracking
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Average Calories */}
+            <Card 
+              className="relative overflow-hidden"
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))',
+                borderLeft: '4px solid rgb(var(--warning))'
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="text-xs font-mono uppercase mb-2" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  Avg Calories (7d)
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black" style={{ color: 'rgb(var(--fg))' }}>
+                    {stats.fitness.avgCalories}
+                  </span>
+                  <span className="text-lg font-bold" style={{ color: 'rgb(var(--fg-muted))' }}>kcal</span>
+                </div>
+                <div className="mt-2 text-sm" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  Daily average
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Coming Soon Section */}
+          {/* Quick Actions - Fitness */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card 
+              className="cursor-pointer transition-all hover:scale-[1.02]"
+              onClick={() => router.push('/gym')}
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))'
+              }}
+            >
+              <CardContent className="p-6 flex items-center gap-4">
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                  style={{ backgroundColor: 'rgba(var(--accent), 0.15)' }}
+                >
+                  🏋️
+                </div>
+                <div>
+                  <div className="font-bold mb-1" style={{ color: 'rgb(var(--fg))' }}>
+                    Log Workout
+                  </div>
+                  <div className="text-xs" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                    Track your session
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="cursor-pointer transition-all hover:scale-[1.02]"
+              onClick={() => router.push('/body-metrics')}
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))'
+              }}
+            >
+              <CardContent className="p-6 flex items-center gap-4">
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                  style={{ backgroundColor: 'rgba(var(--forest), 0.15)' }}
+                >
+                  📊
+                </div>
+                <div>
+                  <div className="font-bold mb-1" style={{ color: 'rgb(var(--fg))' }}>
+                    Body Metrics
+                  </div>
+                  <div className="text-xs" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                    Update measurements
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="cursor-pointer transition-all hover:scale-[1.02]"
+              onClick={() => router.push('/nutrition')}
+              style={{
+                backgroundColor: 'rgb(var(--card))',
+                border: '1px solid rgb(var(--card-border))'
+              }}
+            >
+              <CardContent className="p-6 flex items-center gap-4">
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                  style={{ backgroundColor: 'rgba(var(--warning), 0.15)' }}
+                >
+                  🍎
+                </div>
+                <div>
+                  <div className="font-bold mb-1" style={{ color: 'rgb(var(--fg))' }}>
+                    Nutrition
+                  </div>
+                  <div className="text-xs" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                    Log meals & macros
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* PRODUCTIVITY & SCHOOL */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Productivity Section */}
           <div>
-            <h2 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--fg))' }}>
-              🚧 In Entwicklung
+            <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: 'rgb(var(--fg))' }}>
+              <span style={{ color: 'rgb(var(--info))' }}>█</span> PRODUCTIVITY
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <ComingSoonCard icon="💼" title="Arbeit" description="Work & Projects" />
-              <ComingSoonCard icon="🎓" title="Schule" description="Learning & Education" />
-              <ComingSoonCard icon="💰" title="Finanzen" description="Budget & Expenses" />
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <Card style={{ backgroundColor: 'rgb(var(--card))', border: '1px solid rgb(var(--card-border))' }}>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-black mb-1" style={{ color: 'rgb(var(--danger))' }}>
+                    {stats.productivity.openTodos}
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                    OPEN
+                  </div>
+                </CardContent>
+              </Card>
+              <Card style={{ backgroundColor: 'rgb(var(--card))', border: '1px solid rgb(var(--card-border))' }}>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-black mb-1" style={{ color: 'rgb(var(--success))' }}>
+                    {stats.productivity.completedToday}
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                    TODAY
+                  </div>
+                </CardContent>
+              </Card>
+              <Card style={{ backgroundColor: 'rgb(var(--card))', border: '1px solid rgb(var(--card-border))' }}>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-black mb-1" style={{ color: 'rgb(var(--warning))' }}>
+                    {stats.productivity.upcomingEvents}
+                  </div>
+                  <div className="text-xs font-mono" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                    EVENTS
+                  </div>
+                </CardContent>
+              </Card>
             </div>
+            <Button 
+              onClick={() => router.push('/todos')}
+              className="w-full"
+              style={{
+                backgroundColor: 'rgba(var(--info), 0.1)',
+                color: 'rgb(var(--info))',
+                border: '1px solid rgba(var(--info), 0.3)'
+              }}
+            >
+              → Manage Tasks
+            </Button>
+          </div>
+
+          {/* School Section */}
+          <div>
+            <h2 className="text-xl font-black uppercase tracking-tight mb-4" style={{ color: 'rgb(var(--fg))' }}>
+              <span style={{ color: 'rgb(var(--warning))' }}>█</span> SCHOOL
+            </h2>
+            <Card 
+              style={{ 
+                backgroundColor: 'rgb(var(--card))', 
+                border: '1px solid rgb(var(--card-border))',
+                height: '140px'
+              }}
+            >
+              <CardContent className="p-6">
+                <div className="text-sm font-mono mb-2" style={{ color: 'rgb(var(--fg-subtle))' }}>
+                  Pending Tasks
+                </div>
+                <div className="text-4xl font-black mb-4" style={{ color: 'rgb(var(--warning))' }}>
+                  {stats.school.pendingTasks}
+                </div>
+                <Button 
+                  onClick={() => router.push('/school/overview')}
+                  size="sm"
+                  style={{
+                    backgroundColor: 'rgba(var(--warning), 0.1)',
+                    color: 'rgb(var(--warning))',
+                    border: '1px solid rgba(var(--warning), 0.3)',
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  → School Hub
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     </AppLayout>
-  )
-}
-
-// Quick Stat Card Component
-function QuickStatCard({ 
-  icon, 
-  label, 
-  value, 
-  subtext, 
-  color 
-}: { 
-  icon: React.ReactNode
-  label: string
-  value: string
-  subtext: string
-  color: 'accent' | 'success' | 'warning'
-}) {
-  const colorMap = {
-    accent: 'var(--accent)',
-    success: 'var(--success)',
-    warning: 'var(--warning)'
-  }
-
-  return (
-    <div className="card p-4">
-      <div className="flex items-start gap-3">
-        <div 
-          className="p-2 rounded-lg"
-          style={{ backgroundColor: `rgba(${colorMap[color]}, 0.15)`, color: `rgb(${colorMap[color]})` }}
-        >
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs mb-1" style={{ color: 'rgb(var(--fg-muted))' }}>
-            {label}
-          </p>
-          <p className="text-2xl font-bold mb-0.5" style={{ color: 'rgb(var(--fg))' }}>
-            {value}
-          </p>
-          <p className="text-xs truncate" style={{ color: 'rgb(var(--fg-subtle))' }}>
-            {subtext}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Module Card Component
-function ModuleCard({ 
-  icon, 
-  title, 
-  description, 
-  badge, 
-  link 
-}: { 
-  icon: string
-  title: string
-  description: string
-  badge: string
-  link?: string
-}) {
-  const router = useRouter()
-
-  const handleClick = () => {
-    if (link) router.push(link)
-  }
-
-  return (
-    <div
-      onClick={handleClick}
-      className="card p-5 cursor-pointer group transition-all"
-      style={{
-        transform: 'translateY(0)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-4px)'
-        e.currentTarget.style.borderColor = 'rgb(var(--accent))'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.borderColor = 'rgb(var(--card-border))'
-      }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="text-3xl">{icon}</div>
-        {badge && (
-          <span 
-            className="text-xs px-2 py-1 rounded-md font-medium"
-            style={{ 
-              backgroundColor: 'rgba(var(--accent), 0.12)',
-              color: 'rgb(var(--accent))'
-            }}
-          >
-            {badge}
-          </span>
-        )}
-      </div>
-      <h3 className="text-lg font-semibold mb-1" style={{ color: 'rgb(var(--fg))' }}>
-        {title}
-      </h3>
-      <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-        {description}
-      </p>
-    </div>
-  )
-}
-
-// Coming Soon Card Component
-function ComingSoonCard({ 
-  icon, 
-  title, 
-  description 
-}: { 
-  icon: string
-  title: string
-  description: string
-}) {
-  return (
-    <div 
-      className="card p-5 opacity-60 cursor-not-allowed"
-      style={{ backgroundColor: 'rgb(var(--bg-elevated))' }}
-    >
-      <div className="text-3xl mb-3">{icon}</div>
-      <h3 className="text-lg font-semibold mb-1" style={{ color: 'rgb(var(--fg))' }}>
-        {title}
-      </h3>
-      <p className="text-sm" style={{ color: 'rgb(var(--fg-muted))' }}>
-        {description}
-      </p>
-      <div className="mt-3 inline-block">
-        <span 
-          className="text-xs px-2 py-1 rounded-md font-medium"
-          style={{ 
-            backgroundColor: 'rgba(var(--fg-subtle), 0.15)',
-            color: 'rgb(var(--fg-subtle))'
-          }}
-        >
-          Kommt bald
-        </span>
-      </div>
-    </div>
-  )
+  );
 }

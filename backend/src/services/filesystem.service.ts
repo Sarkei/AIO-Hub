@@ -12,6 +12,7 @@ import { prisma } from '../prisma/client';
 export class FilesystemService {
   /**
    * Synchronisiert Ordner vom Dateisystem zur Datenbank
+   * Scannt ALLE Ordner auf der Festplatte und erstellt DB-Einträge falls nötig
    */
   static async syncFoldersFromFilesystem(
     userId: string,
@@ -33,7 +34,20 @@ export class FilesystemService {
 
     const dbFolderPaths = new Set<string>(dbFolders.map((f: any) => f.path as string));
 
-    // Scanne Dateisystem rekursiv
+    // Lösche DB-Einträge für Ordner, die nicht mehr auf der Festplatte existieren
+    for (const folder of dbFolders) {
+      const folderFullPath = path.join(basePath, folder.path);
+      if (!fs.existsSync(folderFullPath)) {
+        console.log(`🗑️ Deleting folder from DB (not on filesystem): ${folder.path}`);
+        await prisma.$queryRawUnsafe(`
+          DELETE FROM "${schemaName}"."note_folders"
+          WHERE id = '${folder.id}'
+        `);
+        dbFolderPaths.delete(folder.path);
+      }
+    }
+
+    // Scanne Dateisystem rekursiv und erstelle fehlende DB-Einträge
     await this.scanDirectory(basePath, '', userId, schemaName, dbFolderPaths);
   }
 
@@ -103,6 +117,8 @@ export class FilesystemService {
 
   /**
    * Synchronisiert Dateien vom Dateisystem zur Datenbank
+   * Löscht DB-Einträge für Dateien, die nicht mehr existieren
+   * Erstellt DB-Einträge für neue Dateien
    */
   static async syncFilesFromFilesystem(
     userId: string,
@@ -135,12 +151,23 @@ export class FilesystemService {
       return;
     }
 
-    // Hole alle DB-Dateien
+    // Hole alle DB-Dateien für diesen Ordner
     const dbFiles: any = await prisma.$queryRawUnsafe(`
-      SELECT stored_name FROM "${schemaName}"."note_files"
+      SELECT id, stored_name, file_path FROM "${schemaName}"."note_files"
       WHERE user_id = '${userId}'
       ${folderId ? `AND folder_id = '${folderId}'` : 'AND folder_id IS NULL'}
     `);
+
+    // Lösche DB-Einträge für Dateien, die nicht mehr existieren
+    for (const dbFile of dbFiles) {
+      if (!fs.existsSync(dbFile.file_path)) {
+        console.log(`🗑️ Deleting file from DB (not on filesystem): ${dbFile.stored_name}`);
+        await prisma.$queryRawUnsafe(`
+          DELETE FROM "${schemaName}"."note_files"
+          WHERE id = '${dbFile.id}'
+        `);
+      }
+    }
 
     const dbFileNames = new Set(dbFiles.map((f: any) => f.stored_name));
 
@@ -191,5 +218,139 @@ export class FilesystemService {
         `);
       }
     }
+  }
+
+  /**
+   * Synchronisiert Markdown-Notizen vom Dateisystem zur Datenbank
+   * Löscht DB-Einträge für Notizen, die nicht mehr existieren
+   * Erstellt DB-Einträge für neue Markdown-Dateien
+   */
+  static async syncNotesFromFilesystem(
+    userId: string,
+    username: string,
+    schemaName: string,
+    folderId?: string
+  ): Promise<void> {
+    const basePath = path.join('/volume1/docker/AIO-Hub-Data', username);
+    
+    if (!fs.existsSync(basePath)) {
+      return;
+    }
+
+    // Hole Ordner-Info wenn folderId gegeben
+    let folderPath = '';
+    if (folderId) {
+      const folder: any = await prisma.$queryRawUnsafe(`
+        SELECT path FROM "${schemaName}"."note_folders"
+        WHERE id = '${folderId}' AND user_id = '${userId}'
+        LIMIT 1
+      `);
+      if (folder && folder.length > 0) {
+        folderPath = folder[0].path;
+      }
+    }
+
+    const scanPath = folderPath ? path.join(basePath, folderPath) : basePath;
+    
+    if (!fs.existsSync(scanPath)) {
+      return;
+    }
+
+    // Hole alle DB-Notizen für diesen Ordner
+    const dbNotes: any = await prisma.$queryRawUnsafe(`
+      SELECT id, title FROM "${schemaName}"."notes"
+      WHERE user_id = '${userId}'
+      ${folderId ? `AND folder_id = '${folderId}'` : 'AND folder_id IS NULL'}
+    `);
+
+    // Lösche DB-Einträge für Notizen, deren Markdown-Dateien nicht mehr existieren
+    for (const dbNote of dbNotes) {
+      const expectedFileName = `${dbNote.title.replace(/[^a-zA-Z0-9-_äöüÄÖÜß\s]/g, '_')}.md`;
+      const expectedPath = path.join(scanPath, expectedFileName);
+      
+      if (!fs.existsSync(expectedPath)) {
+        console.log(`🗑️ Deleting note from DB (markdown file not on filesystem): ${dbNote.title}`);
+        await prisma.$queryRawUnsafe(`
+          DELETE FROM "${schemaName}"."notes"
+          WHERE id = '${dbNote.id}'
+        `);
+      }
+    }
+
+    const dbNoteTitles = new Set(dbNotes.map((n: any) => n.title));
+
+    // Scanne Markdown-Dateien im Ordner (nur auf oberster Ebene, nicht rekursiv)
+    const items = fs.readdirSync(scanPath, { withFileTypes: true });
+
+    for (const item of items) {
+      if (item.isFile()) {
+        const ext = path.extname(item.name).toLowerCase();
+        
+        // Nur Markdown-Dateien
+        if (ext !== '.md' && ext !== '.markdown') continue;
+        
+        const titleWithoutExt = path.basename(item.name, ext);
+        
+        // Überspringe Dateien die bereits als Notizen in der DB sind
+        if (dbNoteTitles.has(titleWithoutExt)) continue;
+
+        console.log(`📝 Syncing markdown note from filesystem: ${item.name}`);
+
+        const id = uuidv4();
+        const filePath = path.join(scanPath, item.name);
+        
+        // Lese Dateiinhalt
+        let content = '';
+        try {
+          content = fs.readFileSync(filePath, 'utf8');
+        } catch (error) {
+          console.error(`Failed to read markdown file ${filePath}:`, error);
+          continue;
+        }
+
+        // Erstelle Notiz-Eintrag in DB
+        await prisma.$queryRawUnsafe(`
+          INSERT INTO "${schemaName}"."notes"
+          (id, user_id, folder_id, title, content, tags, created_at, updated_at)
+          VALUES (
+            '${id}',
+            '${userId}',
+            ${folderId ? `'${folderId}'` : 'NULL'},
+            '${titleWithoutExt.replace(/'/g, "''")}',
+            '${content.replace(/'/g, "''")}',
+            ARRAY[]::text[],
+            NOW(),
+            NOW()
+          )
+        `);
+      }
+    }
+  }
+
+  /**
+   * Synchronisiert alle Notizen rekursiv in allen Ordnern
+   */
+  static async syncAllNotesRecursively(
+    userId: string,
+    username: string,
+    schemaName: string
+  ): Promise<void> {
+    // Synchronisiere erst alle Ordner
+    await this.syncFoldersFromFilesystem(userId, username, schemaName);
+
+    // Hole alle Ordner aus DB
+    const folders: any = await prisma.$queryRawUnsafe(`
+      SELECT id, path FROM "${schemaName}"."note_folders"
+      WHERE user_id = '${userId}'
+      ORDER BY path
+    `);
+
+    // Synchronisiere Notizen in jedem Ordner
+    for (const folder of folders) {
+      await this.syncNotesFromFilesystem(userId, username, schemaName, folder.id);
+    }
+
+    // Synchronisiere auch Notizen im Root-Verzeichnis
+    await this.syncNotesFromFilesystem(userId, username, schemaName);
   }
 }
